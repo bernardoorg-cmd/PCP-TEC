@@ -1,0 +1,2249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Weiku TEC — PCP</title>
+
+<!-- Firebase SDK v9 compat -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<!-- SheetJS para Excel export/import -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ============================================================ RESET & VARS */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f5f5;--sur:#ffffff;--sur2:#f8f8f8;--bor:#dcdcdc;
+  --acc:#c9a96e;--txt:#1a1a1a;--mut:#8a8fa8;
+  --ph:#1e5a3a;--ph2:#174d31;
+  --pexp:#e07b1a;--pconcl:#2d8a4e;--pcoleta:#2a8080;
+  --pbor:#c8d0c8;--prow2:#f0f4f0;
+  --dan:#e05c5c;--war:#e8a44a;--ok:#4ecdc4;
+}
+html,body{height:100%;background:var(--bg);color:#1a1a1a;font-family:Arial,sans-serif;font-size:12px}
+
+/* ============================================================ LOGIN */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--bg)}
+.login-card{background:var(--sur);border:1px solid var(--bor);border-radius:16px;padding:36px 30px;width:100%;max-width:400px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.login-field input{width:100%;background:var(--sur2);border:1px solid var(--bor);border-radius:7px;padding:10px 12px;color:var(--txt);font-size:13px;outline:none;font-family:inherit;transition:border-color .15s}
+.login-field input:focus{border-color:var(--acc)}
+.btn-login{width:100%;padding:12px;background:var(--acc);border:none;border-radius:8px;color:#1a1209;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-login:hover{opacity:.9}
+.login-err{display:none;background:rgba(224,92,92,.12);border:1px solid rgba(224,92,92,.4);border-radius:6px;padding:9px 12px;font-size:12px;color:var(--dan);margin-bottom:14px}
+.login-loading{display:none;text-align:center;padding:12px;font-size:12px;color:var(--mut)}
+
+/* ============================================================ APP LAYOUT */
+.app-wrap{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:195px;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;flex-shrink:0}
+.sb-logo{padding:16px;border-bottom:1px solid var(--bor)}
+.sb-mark{font-size:18px;font-weight:700;color:var(--acc);letter-spacing:2px}
+.sb-sub{font-size:9px;color:var(--mut);letter-spacing:1.2px;text-transform:uppercase;margin-top:3px}
+.sb-sec{font-size:9px;color:var(--mut);padding:11px 16px 3px;text-transform:uppercase;letter-spacing:.8px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 16px;cursor:pointer;color:var(--mut);font-size:12px;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:var(--sur2);color:var(--txt)}
+.nav-item.active{color:var(--acc);border-left-color:var(--acc);background:rgba(201,169,110,.08);font-weight:700}
+.sb-footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--bor)}
+.sb-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.logout-btn{display:flex;align-items:center;gap:6px;padding:6px 0;margin-top:9px;cursor:pointer;font-size:11px;color:var(--mut)}
+.logout-btn:hover{color:var(--dan)}
+.main-area{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.page{display:none;flex:1;overflow:hidden;flex-direction:column}
+.page.active{display:flex}
+
+/* ============================================================ TABELA PLANILHA */
+.sheet-toolbar{display:flex;align-items:center;gap:7px;padding:9px 13px;background:#fff;border-bottom:2px solid var(--pbor);flex-wrap:wrap;flex-shrink:0}
+.sheet-title{font-size:13px;font-weight:700;color:var(--ph)}
+.sBtn{padding:5px 11px;border-radius:4px;border:1px solid #bbb;background:#fff;font-size:11px;cursor:pointer;font-family:Arial;color:#333;transition:background .15s;white-space:nowrap}
+.sBtn:hover{background:#f0f0f0}
+.sBtn.green{background:var(--ph);color:#fff;border-color:var(--ph);font-weight:700}.sBtn.green:hover{background:var(--ph2)}
+.sBtn.teal{background:var(--pcoleta);color:#fff;border-color:var(--pcoleta);font-weight:700}.sBtn.teal:hover{opacity:.9}
+.sBtn.orange{background:var(--pexp);color:#fff;border-color:var(--pexp);font-weight:700}.sBtn.orange:hover{opacity:.9}
+.sBtn.red{border-color:#cc2222;color:#cc2222}.sBtn.red:hover{background:#fff5f5}
+.sInput{background:#fff;border:1px solid #bbb;border-radius:4px;padding:5px 9px;font-size:11px;color:#333;outline:none;font-family:Arial}
+.sInput:focus{border-color:var(--ph)}
+.sSel{background:#fff;border:1px solid #bbb;border-radius:4px;padding:5px 7px;font-size:11px;color:#555;outline:none;cursor:pointer;font-family:Arial}
+.urp-total{background:var(--ph);color:#fff;padding:4px 11px;border-radius:4px;font-weight:700;font-size:11px;white-space:nowrap}
+.tbl-outer{overflow:auto;flex:1}
+table.sheet{width:100%;border-collapse:collapse;min-width:1740px;font-size:11px}
+table.sheet thead th{padding:7px 7px;font-weight:700;white-space:nowrap;text-align:center;border:1px solid #999;font-size:10px;position:sticky;top:0;z-index:3}
+table.sheet thead th.th-main{background:var(--ph);color:#fff}
+table.sheet thead th.th-exp{background:var(--pexp);color:#fff}
+table.sheet thead th.th-concl{background:var(--pconcl);color:#fff}
+table.sheet thead th.th-coleta{background:var(--pcoleta);color:#fff}
+table.sheet tbody td{padding:5px 7px;border:1px solid var(--pbor);vertical-align:middle;white-space:nowrap;text-align:center}
+table.sheet tbody tr:nth-child(even) td{background:#f0f4f0}
+table.sheet tbody tr:nth-child(odd) td{background:#fff}
+table.sheet tbody tr:hover td{background:#d8edd8!important}
+.drag-col{width:30px;min-width:30px}
+.drag-handle{cursor:grab;color:#888;font-size:14px;line-height:1;display:inline-block;padding:2px 4px;border-radius:4px}
+.drag-handle:hover{background:#e9ecef;color:#555}
+tr.dragging{opacity:.45}
+tr.drag-over-top td{box-shadow:inset 0 2px 0 var(--ph)}
+tr.drag-over-bottom td{box-shadow:inset 0 -2px 0 var(--ph)}
+.reorder-hint{font-size:10px;color:#777;margin-left:2px}
+.reorder-hint.warn{color:#cc6600;font-weight:700}
+/* Column drag */
+th.col-dragging{opacity:.4}
+th.col-drag-over{box-shadow:inset -3px 0 0 var(--acc)}
+th[draggable="true"]{cursor:grab;user-select:none}
+th[draggable="true"]:active{cursor:grabbing}
+
+/* Editable cells */
+.editable-cell{cursor:pointer;position:relative}
+.editable-cell:hover::after{content:'✎';position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:9px;color:#aaa}
+.inline-edit{width:100%;border:1px solid var(--ph);border-radius:3px;padding:2px 4px;font-size:11px;font-family:Arial;outline:none;background:#fff}
+.cor-badge{display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid #999;vertical-align:middle}
+.setor-exp{background:var(--pexp);color:#fff;padding:2px 6px;border-radius:3px;font-weight:700;font-size:10px;display:inline-block}
+.setor-other{background:#555;color:#fff;padding:2px 6px;border-radius:3px;font-size:10px;display:inline-block}
+.pr-normal{color:#1a5a2a;font-weight:700}.pr-prior{color:#cc6600;font-weight:700}.pr-atras{color:#cc0000;font-weight:700}
+
+/* ============================================================ DASHBOARD */
+.dash-inner{padding:18px;flex:1;overflow-y:auto;background:#f5f5f5}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.kpi-card{background:#fff;border-radius:6px;padding:14px;text-align:center;border-top:4px solid}
+.kpi-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:700;color:#555}
+.kpi-val{font-size:26px;font-weight:700}
+.kpi-sub{font-size:10px;margin-top:3px;color:#888}
+.kpi-card.kpi-inf{border-color:var(--ph)}.kpi-card.kpi-inf .kpi-val{color:var(--ph)}
+.kpi-card.kpi-war{border-color:var(--pexp)}.kpi-card.kpi-war .kpi-val{color:var(--pexp)}
+.kpi-card.kpi-dan{border-color:#cc2222}.kpi-card.kpi-dan .kpi-val{color:#cc2222}
+.kpi-card.kpi-ok{border-color:var(--pconcl)}.kpi-card.kpi-ok .kpi-val{color:var(--pconcl)}
+.kanban-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px}
+.k-col{background:#fff;border:2px solid var(--ph);border-radius:6px;padding:10px;text-align:center}
+.k-title{font-size:10px;font-weight:700;color:var(--ph);text-transform:uppercase;margin-bottom:5px}
+.k-cnt{font-size:24px;font-weight:700;color:var(--ph)}
+.k-urp{font-size:10px;color:#888;margin-top:2px}
+.prazo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.prazo-card{background:#fff;border:1px solid #ddd;border-radius:6px;padding:12px}
+.prazo-card-hdr{font-size:11px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid}
+.pitem{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:11px}
+.pitem:last-child{border-bottom:none}
+
+
+/* ============================================================ EFETIVIDADE */
+.efet-inner{padding:18px;flex:1;overflow-y:auto;background:#f5f5f5}
+.efet-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-bottom:14px}
+.efet-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:14px}
+.efet-title{font-size:14px;font-weight:700;color:var(--ph);margin-bottom:10px}
+.efet-kpi-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.efet-kpi{background:#fff;border-radius:8px;padding:14px;border-top:4px solid}
+.efet-kpi .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#666;font-weight:700;margin-bottom:5px}
+.efet-kpi .val{font-size:28px;font-weight:700}
+.efet-kpi .sub{font-size:11px;color:#777;margin-top:4px}
+.efet-ruim{border-color:#cc2222}.efet-ruim .val{color:#cc2222}
+.efet-regular{border-color:#e0a300}.efet-regular .val{color:#b88400}
+.efet-bom{border-color:#2d8a4e}.efet-bom .val{color:#2d8a4e}
+.efet-muito-bom{border-color:#1e5a3a}.efet-muito-bom .val{color:#1e5a3a}
+.efet-neutral{border-color:#777}.efet-neutral .val{color:#555}
+.efet-badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}
+.efet-badge.ruim{background:#fdeaea;color:#b91c1c}
+.efet-badge.regular{background:#fff7db;color:#9a6700}
+.efet-badge.bom{background:#e9f8ee;color:#1f6b3b}
+.efet-badge.muito-bom{background:#e3f3ea;color:#154b31}
+.efet-badge.neutral{background:#f1f1f1;color:#666}
+.efet-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.efet-mini{font-size:11px;color:#777}
+.efet-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.efet-stat{background:#f8f8f8;border:1px solid #e5e5e5;border-radius:6px;padding:10px}
+.efet-stat .n{font-size:18px;font-weight:700;color:var(--ph)}
+.efet-stat .l{font-size:10px;text-transform:uppercase;color:#777;font-weight:700}
+.efet-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.efet-table th{background:var(--ph);color:#fff;padding:8px;border:1px solid #999;text-align:left}
+.efet-table td{padding:7px 8px;border:1px solid var(--pbor);background:#fff}
+.efet-table tr:nth-child(even) td{background:#f7faf7}
+@media (max-width: 900px){
+  .efet-grid,.efet-kpi-wrap,.efet-form-grid,.efet-stat-grid{grid-template-columns:1fr}
+}
+
+/* ============================================================ EXPEDIÇÃO */
+.exp-inner,.cfg-inner,.users-inner{padding:18px;flex:1;overflow-y:auto;background:#f5f5f5}
+.cfg-card{background:#fff;border:1px solid #ddd;border-radius:6px;padding:16px;margin-bottom:14px}
+.cfg-title{font-size:13px;font-weight:700;color:var(--ph);margin-bottom:12px}
+.s-chip{display:inline-flex;align-items:center;gap:4px;background:#e8f5e8;border:1px solid var(--pconcl);border-radius:20px;padding:3px 11px;font-size:11px;margin:3px;color:var(--ph)}
+.chip-x{cursor:pointer;color:#aaa;margin-left:2px}.chip-x:hover{color:#cc2222}
+
+/* ============================================================ GESTÃO USUÁRIOS */
+.user-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+.user-table th{background:var(--ph);color:#fff;padding:8px 10px;border:1px solid #999;text-align:left;font-weight:700}
+.user-table td{padding:7px 10px;border:1px solid var(--pbor);background:#fff}
+.user-table tr:nth-child(even) td{background:#f0f4f0}
+.user-table tr:hover td{background:#e0ece0!important}
+.role-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700}
+.role-admin{background:#1e5a3a;color:#fff}
+.role-producao{background:#e07b1a;color:#fff}
+.role-almox{background:#2a8080;color:#fff}
+.role-viewer{background:#888;color:#fff}
+.perm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.perm-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;font-size:11px}
+.perm-item input[type=checkbox]{cursor:pointer;width:14px;height:14px;accent-color:var(--ph)}
+
+/* ============================================================ MODAIS */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:8px;padding:22px;width:660px;max-width:96vw;max-height:92vh;overflow-y:auto;border-top:4px solid var(--ph)}
+.modal-sm{width:420px}
+.modal-lg{width:800px}
+.modal-title{font-size:15px;font-weight:700;color:var(--ph);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+.mclose{cursor:pointer;color:#aaa;font-size:20px;line-height:1}.mclose:hover{color:#333}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.fg1{margin-bottom:10px}
+.mfl label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.4px;margin-bottom:4px}
+.mfl input,.mfl select,.mfl textarea{width:100%;background:#f8f8f8;border:1px solid #ccc;border-radius:4px;padding:8px 10px;font-size:12px;outline:none;font-family:Arial;color:#333;transition:border-color .15s}
+.mfl input:focus,.mfl select:focus,.mfl textarea:focus{border-color:var(--ph);background:#fff}
+.mfl .prior-display{padding:8px 10px;border-radius:4px;font-size:12px;font-weight:700;border:1px solid;width:100%}
+.prior-normal-bg{background:#e8f5e8;color:#1a5a2a;border-color:var(--pconcl)!important}
+.prior-prior-bg{background:#fff3e0;color:#cc6600;border-color:var(--pexp)!important}
+.prior-atras-bg{background:#ffebee;color:#cc0000;border-color:#cc2222!important}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid #eee;flex-wrap:wrap}
+.mBtn{padding:8px 18px;border-radius:4px;border:1px solid #ccc;background:#fff;font-size:12px;cursor:pointer;font-family:Arial;color:#333;transition:background .15s;white-space:nowrap}
+.mBtn:hover{background:#f0f0f0}
+.mBtn.green{background:var(--ph);color:#fff;border-color:var(--ph);font-weight:700}.mBtn.green:hover{background:var(--ph2)}
+.mBtn.orange{border-color:var(--pexp);color:var(--pexp)}.mBtn.orange:hover{background:#fff8f0}
+.mBtn.teal{background:var(--pcoleta);color:#fff;border-color:var(--pcoleta);font-weight:700}.mBtn.teal:hover{opacity:.9}
+.mBtn.red{border-color:#cc2222;color:#cc2222}.mBtn.red:hover{background:#fff5f5}
+.res-box{background:#fff8e8;border:1px solid #e07b1a;border-left:4px solid var(--pexp);border-radius:4px;padding:8px 10px;margin-bottom:6px}
+.res-meta{font-size:10px;color:#aaa;margin-bottom:3px}
+.res-txt{font-size:12px;color:#cc6600}
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;font-size:12px;margin-bottom:14px}
+.det-item label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#999;margin-bottom:2px}
+.sec-lbl{font-size:10px;font-weight:700;text-transform:uppercase;color:#aaa;margin:12px 0 6px;letter-spacing:.5px}
+.info-box{background:#e8f5e8;border:1px solid var(--pconcl);border-radius:4px;padding:9px 12px;margin-bottom:10px;font-size:11px;color:var(--ph);display:flex;align-items:center;gap:8px}
+.warn-box{background:#fff8e0;border:1px solid var(--pexp);border-radius:4px;padding:9px 12px;margin-bottom:10px;font-size:11px;color:#cc6600;display:flex;align-items:center;gap:8px}
+
+/* Import preview table */
+.import-preview{max-height:200px;overflow:auto;font-size:10px;margin:10px 0}
+.import-preview table{border-collapse:collapse;width:100%}
+.import-preview th{background:#1e5a3a;color:#fff;padding:4px 6px;border:1px solid #999;position:sticky;top:0}
+.import-preview td{padding:3px 6px;border:1px solid #ddd}
+.import-preview tr:nth-child(even) td{background:#f5f5f5}
+.import-ok{color:var(--ph);font-weight:700}
+.import-err{color:#cc2222;font-weight:700}
+
+/* Spinner */
+.spinner{width:20px;height:20px;border:3px solid #ddd;border-top-color:var(--ph);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:99999;opacity:0;transition:opacity .3s;pointer-events:none;max-width:340px}
+.toast.show{opacity:1}
+.toast.ok{border-left:4px solid var(--pconcl)}
+.toast.err{border-left:4px solid #cc2222}
+.toast.info{border-left:4px solid var(--pexp)}
+
+/* Loading overlay */
+.loading-overlay{position:fixed;inset:0;background:rgba(15,17,23,.85);z-index:99998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading-overlay .msg{color:var(--txt);font-size:14px}
+
+
+/* ============================================================ RESPONSIVO */
+@media (max-width: 768px){
+  .sidebar{width:76px}
+  .sb-sub,.sb-sec,.logout-btn,.sb-footer>div>div:last-child{display:none}
+  .sb-logo{padding:12px 8px;text-align:center}
+  .sb-mark{font-size:14px;letter-spacing:1px}
+  .nav-item{padding:10px 8px;font-size:11px;justify-content:center}
+  .main-area{min-width:0}
+  .sheet-toolbar{gap:8px;padding:10px}
+  .sheet-toolbar > div{width:100%}
+  .sheet-toolbar .sSel,.sheet-toolbar .sBtn,.sheet-toolbar .sInput{font-size:12px}
+  .sheet-toolbar .urp-total{order:99}
+}
+
+/* ============================================================ IMPRESSÃO */
+@page{size:A4 landscape;margin:8mm}
+@media print{
+  html,body{background:#fff!important;height:auto!important}
+  .sidebar,.sheet-toolbar .sBtn,.sheet-toolbar .sInput,.sheet-toolbar .sSel,.sheet-toolbar .reorder-hint,.sheet-toolbar .urp-total + .sBtn,.logout-btn,.sb-footer,.sb-logo,.sb-sec,.nav-item,.toast,.loading-overlay{display:none!important}
+  .app-wrap,.main-area,.page,.tbl-outer{display:block!important;overflow:visible!important;height:auto!important}
+  .main-area{flex:none!important}
+  .page{display:block!important}
+  .sheet-toolbar{border:none!important;padding:0 0 6px 0!important;background:#fff!important}
+  .sheet-title{font-size:14px!important;color:#000!important}
+  table.sheet{min-width:0!important;width:100%!important;table-layout:fixed!important;font-size:8px!important}
+  table.sheet th,table.sheet td{padding:3px 4px!important;font-size:8px!important;white-space:normal!important;overflow-wrap:anywhere!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  table.sheet td span{max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+  table.sheet thead{display:table-header-group}
+  table.sheet tbody tr{page-break-inside:avoid}
+  .drag-col,.acoes-col{display:none!important}
+  .cor-badge{width:14px!important;height:14px!important}
+}
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast" class="toast"></div>
+<div id="loading-overlay" class="loading-overlay" style="display:none">
+  <div class="spinner" style="width:40px;height:40px;border-width:4px"></div>
+  <div class="msg" id="loading-msg">Carregando...</div>
+</div>
+
+<script>
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyB8dcjYXfW4WRAe82JxNdGerA3qOhMupYw",
+  authDomain:        "tec-pcp.firebaseapp.com",
+  projectId:         "tec-pcp",
+  storageBucket:     "tec-pcp.firebasestorage.app",
+  messagingSenderId: "866927960624",
+  appId:             "1:866927960624:web:656dc8ee3141e49f2283f5",
+  measurementId:     "G-NK6BN2DSG9"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+const COR_SEMANA_NOMES  = ['Branco','Rosa','Azul','Laranja','Verde','Vermelho','Amarelo'];
+const COR_SEMANA_HEX    = ['#ffffff','#ff80b3','#6699ff','#ff9933','#33cc66','#ff3333','#ffff33'];
+const COR_SEMANA_BORDER = ['#999','#cc3377','#3355cc','#cc6600','#1a7a33','#aa0000','#ccaa00'];
+const COR_SEMANA_BADGE  = ['#777','#cc3377','#3355cc','#cc6600','#1a7a33','#aa0000','#aa9900'];
+const COR_PED_NOMES     = ['Branco','Preto','Branco e Preto'];
+const COR_PED_BG        = ['#f8f8f8','#333','#888'];
+const COR_PED_FG        = ['#333','#fff','#fff'];
+const SETORES_FLOW      = ['1. Corte','2. Montagem','3. Expedição','4. Entregue'];
+const MONTH_OPTIONS     = ['1. JANEIRO','2. FEVEREIRO','3. MARÇO','4. ABRIL','5. MAIO','6. JUNHO','7. JULHO','8. AGOSTO','9. SETEMBRO','10. OUTUBRO','11. NOVEMBRO','12. DEZEMBRO'];
+
+const ALL_PERMISSIONS = [
+  { key:'criar',    label:'Criar pedido' },
+  { key:'avancar',  label:'Avançar setor' },
+  { key:'editar',   label:'Editar campos' },
+  { key:'ressalva', label:'Ressalvas' },
+  { key:'coleta',   label:'Registrar coleta' },
+  { key:'reverter', label:'Reverter setor' },
+  { key:'deletar',  label:'Excluir pedido' },
+  { key:'exportar', label:'Exportar Excel' },
+  { key:'importar', label:'Importar Excel' },
+  { key:'usuarios', label:'Gestão usuários' },
+  { key:'config',   label:'Configurações' },
+];
+
+const ROLE_DEFAULTS = {
+  admin:    { criar:1,avancar:1,editar:1,ressalva:1,coleta:1,reverter:1,deletar:1,exportar:1,importar:1,usuarios:1,config:1 },
+  producao: { criar:1,avancar:1,editar:1,ressalva:1,coleta:0,reverter:0,deletar:0,exportar:1,importar:0,usuarios:0,config:0 },
+  almox:    { criar:0,avancar:0,editar:0,ressalva:0,coleta:1,reverter:0,deletar:0,exportar:1,importar:0,usuarios:0,config:0 },
+  viewer:   { criar:0,avancar:0,editar:0,ressalva:0,coleta:0,reverter:0,deletar:0,exportar:1,importar:0,usuarios:0,config:0 },
+};
+
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+let CU           = null;   // usuário logado {uid, email, name, role, permissions}
+let pedidos      = [];
+let customSetores= ['1. Corte','2. Montagem','3. Expedição'];
+let allUsers     = [];
+let activePage   = 'dashboard';
+let modalState   = null;
+let modalDetId   = null;
+let coletaId     = null;
+let editUserId   = null;
+let importData   = [];
+let nextLocalId  = 1;
+let pedSearch    = '', pedFst = '', pedFano = '', pedFpersiana = '';
+let pedFMeses    = [];
+let pedMonthMenuOpen = false;
+let unsubPedidos = null;
+let unsubEfetividade = null;
+let efetividadeRegs = [];
+let efetividadeWeekSel = '';
+let dragPedidoId = null;
+let dragOverPedidoId = null;
+let dragOverPosition = null;
+
+// Column order: array of column keys in display order
+// 'drag' is the row drag handle column (fixed first, not movable)
+const COL_DEFS = [
+  {key:'ano',      label:'Ano',               cls:'th-main'},
+  {key:'mes',      label:'Mês',               cls:'th-main'},
+  {key:'id',       label:'ID',                cls:'th-main'},
+  {key:'nomes',    label:'Nomes',             cls:'th-main', wide:true},
+  {key:'pedido',   label:'Pedido',            cls:'th-main'},
+  {key:'cidade',   label:'Cidade',            cls:'th-main'},
+  {key:'uf',       label:'UF',                cls:'th-main'},
+  {key:'urp',      label:'URP',               cls:'th-main'},
+  {key:'dtImp',    label:'Dt. Impressão',     cls:'th-main'},
+  {key:'setor',    label:'Localização do Ped.',cls:'th-exp'},
+  {key:'prazo',    label:'Prazo contratual',  cls:'th-exp'},
+  {key:'prioridade',label:'Prioridade',       cls:'th-main'},
+  {key:'prevTEC',  label:'Prev. TEC ✎',       cls:'th-concl', editable:true},
+  {key:'conclProd',label:'Data concl. Prod. ✎',cls:'th-concl', editable:true},
+  {key:'coleta',   label:'Data da coleta',    cls:'th-coleta'},
+  {key:'corPed',   label:'Cor pedido',        cls:'th-main'},
+  {key:'persiana', label:'Persiana',          cls:'th-main'},
+  {key:'acoes',    label:'Ações',             cls:'th-main acoes-col'},
+];
+let colOrder = COL_DEFS.map(c=>c.key);
+let colHidden = new Set(); // chaves das colunas ocultadas
+let dragColKey = null;
+
+// ============================================================
+// HELPERS
+// ============================================================
+const $ = id => document.getElementById(id);
+function fv(id){ return ($(id)||{value:''}).value; }
+function fmt(d){
+  if(!d) return '';
+  try{ return new Date(d.includes('T')?d:d+'T12:00:00').toLocaleDateString('pt-BR'); }
+  catch{ return d; }
+}
+function toISO(d){
+  if(!d && d!==0) return '';
+  // JS Date object (from SheetJS cellDates:true)
+  if(d instanceof Date){
+    if(isNaN(d.getTime())) return '';
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
+  // Excel serial number fallback (legacy, binary read without cellDates)
+  if(typeof d === 'number' && d > 1000 && d < 100000){
+    const base = new Date(1899,11,30);
+    base.setDate(base.getDate() + Math.floor(d));
+    const y=base.getFullYear(), m=String(base.getMonth()+1).padStart(2,'0'), dd=String(base.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
+  const s = String(d).trim();
+  if(!s) return '';
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,10);
+  const p = s.split('/');
+  if(p.length===3) return `${p[2].padStart(4,'20')}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+  return s;
+}
+function diasP(prazo){
+  if(!prazo) return null;
+  return Math.round((new Date(prazo+'T12:00:00')-new Date())/864e5);
+}
+function calcPrior(prazo){
+  const d=diasP(prazo);
+  if(d===null) return 'NORMAL';
+  if(d<0) return 'ATRASADO';
+  if(d<15) return 'PRIORIDADE';
+  return 'NORMAL';
+}
+function urpTotal(arr){ return arr.reduce((a,b)=>a+b.urp,0); }
+function can(a){ return !!(CU && CU.permissions && CU.permissions[a]); }
+function getPedidoSortValue(p){
+  const ordem = Number(p.ordem);
+  if(Number.isFinite(ordem) && ordem>0) return ordem;
+  const created = p.criadoEm && typeof p.criadoEm.toMillis==='function' ? p.criadoEm.toMillis() : 0;
+  return 9999999999999 - created;
+}
+function getOrderedPedidos(){
+  return [...pedidos].sort((a,b)=>{
+    const ao=getPedidoSortValue(a), bo=getPedidoSortValue(b);
+    if(ao!==bo) return ao-bo;
+    return (a.at||'').localeCompare(b.at||'');
+  });
+}
+function hasPedidoFilters(){
+  return !!(pedSearch || pedFst || pedFano || pedFpersiana || pedFMeses.length);
+}
+function monthFilterLabel(){
+  if(!pedFMeses.length) return 'Todos os meses';
+  if(pedFMeses.length===1) return pedFMeses[0].replace(/^\d+\. /,'');
+  return `${pedFMeses.length} meses`;
+}
+
+function startOfISOWeek(date){
+  const d = new Date(date);
+  d.setHours(12,0,0,0);
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() - day + 1);
+  return d;
+}
+function endOfISOWeek(date){
+  const d = startOfISOWeek(date);
+  d.setDate(d.getDate() + 6);
+  return d;
+}
+function dateToISODate(date){
+  const d = new Date(date);
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+function getISOWeekInfo(input){
+  const base = input ? new Date(input) : new Date();
+  const monday = startOfISOWeek(base);
+  const thursday = new Date(monday);
+  thursday.setDate(monday.getDate()+3);
+  const firstThursday = new Date(thursday.getFullYear(),0,4);
+  const firstMonday = startOfISOWeek(firstThursday);
+  const weekNo = 1 + Math.round((monday - firstMonday)/(7*864e5));
+  const weekKey = `${thursday.getFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+  const sunday = endOfISOWeek(base);
+  return {
+    weekKey,
+    weekStart: dateToISODate(monday),
+    weekEnd: dateToISODate(sunday),
+    label: `Semana ${String(weekNo).padStart(2,'0')} · ${fmt(dateToISODate(monday))} a ${fmt(dateToISODate(sunday))}`
+  };
+}
+function parseWeekInputToInfo(weekInput){
+  if(!weekInput || !/^\d{4}-W\d{2}$/.test(weekInput)) return getISOWeekInfo(new Date());
+  const [yearStr, weekStr] = weekInput.split('-W');
+  const year = Number(yearStr), week = Number(weekStr);
+  const jan4 = new Date(year,0,4);
+  const firstMonday = startOfISOWeek(jan4);
+  const monday = new Date(firstMonday);
+  monday.setDate(firstMonday.getDate() + (week-1)*7);
+  return getISOWeekInfo(monday);
+}
+function getPedidoFinalDateISO(p){
+  if(p.coleta) return toISO(p.coleta);
+  if(p.conclProd && ((p.status||'')==='Finalizado' || String(p.setor||'').includes('Entregue'))) return toISO(p.conclProd);
+  return '';
+}
+function isPedidoFinalizado(p){
+  return (p.status==='Finalizado') || String(p.setor||'').includes('Entregue');
+}
+function getURPsFinalizadasPeriodo(startISO, endISO){
+  return pedidos.filter(p=>{
+    if(!isPedidoFinalizado(p)) return false;
+    const dt = getPedidoFinalDateISO(p);
+    return dt && dt>=startISO && dt<=endISO;
+  }).reduce((acc,p)=>acc + (parseFloat(p.urp)||0), 0);
+}
+function normalizeHours(v){
+  const n = parseFloat(String(v||'').replace(',','.'));
+  return Number.isFinite(n) ? n : 0;
+}
+function calcEfetividadeValue(urps, horasTrabalhadas, horasExtras, horasImprodutivas){
+  const denom = normalizeHours(horasTrabalhadas) + normalizeHours(horasExtras) - normalizeHours(horasImprodutivas);
+  if(!(denom>0)) return null;
+  return urps / denom;
+}
+function getEfetividadeFaixa(value){
+  if(value===null || !Number.isFinite(value)) return {label:'Sem base', cls:'neutral'};
+  if(value < 0.825) return {label:'Ruim', cls:'ruim'};
+  if(value < 0.90) return {label:'Regular', cls:'regular'};
+  if(value <= 0.97) return {label:'Bom', cls:'bom'};
+  return {label:'Muito bom', cls:'muito-bom'};
+}
+function fmtPct(value){
+  return value===null || !Number.isFinite(value) ? '—' : `${(value*100).toFixed(1)}%`;
+}
+function getEfetividadeReg(weekKey){
+  return efetividadeRegs.find(r=>r.weekKey===weekKey);
+}
+function getEfetividadeURPs(r){
+  const override = normalizeHours(r && (r.urpsOverride ?? r.urpsSimuladas));
+  if(override > 0) return override;
+  return getURPsFinalizadasPeriodo(r.weekStart, r.weekEnd);
+}
+function enrichEfetividadeReg(r){
+  const urps = getEfetividadeURPs(r);
+  const efetiv = calcEfetividadeValue(urps, r.horasTrabalhadas, r.horasExtras, r.horasImprodutivas);
+  return {...r, urpsFinalizadas:urps, efetiv, faixa:getEfetividadeFaixa(efetiv)};
+}
+function getCurrentMonthEfetividade(){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const regs = efetividadeRegs.filter(r=>{
+    const d = new Date((r.weekStart||'')+'T12:00:00');
+    return !isNaN(d) && d.getFullYear()===y && d.getMonth()===m;
+  });
+  const horasTrab = regs.reduce((a,r)=>a+normalizeHours(r.horasTrabalhadas),0);
+  const horasExt  = regs.reduce((a,r)=>a+normalizeHours(r.horasExtras),0);
+  const horasImp  = regs.reduce((a,r)=>a+normalizeHours(r.horasImprodutivas),0);
+  const urps      = regs.reduce((a,r)=>a+getEfetividadeURPs(r),0);
+  const efetiv    = calcEfetividadeValue(urps, horasTrab, horasExt, horasImp);
+  return {regs, horasTrab, horasExt, horasImp, urps, efetiv, faixa:getEfetividadeFaixa(efetiv)};
+}
+
+function priorHTML(p){
+  if(p==='ATRASADO')  return '<span class="pr-atras">● ATRASADO</span>';
+  if(p==='PRIORIDADE') return '<span class="pr-prior">▲ PRIORIDADE</span>';
+  return '<span class="pr-normal">✓ NORMAL</span>';
+}
+function priorModalCls(p){
+  if(p==='ATRASADO')   return 'prior-display prior-atras-bg';
+  if(p==='PRIORIDADE') return 'prior-display prior-prior-bg';
+  return 'prior-display prior-normal-bg';
+}
+function priorTxt(p){
+  if(p==='ATRASADO')   return '● ATRASADO — prazo vencido';
+  if(p==='PRIORIDADE') return '▲ PRIORIDADE — menos de 15 dias';
+  return '✓ NORMAL — 15 ou mais dias';
+}
+function setorBadge(s){
+  if(!s) return '<span style="color:#aaa">—</span>';
+  const base='color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;font-size:10px;display:inline-block';
+  if(s.includes('1. Corte')){
+    return `<span style="background:#7b1e3a;${base}">${s}</span>`;
+  }
+  if(s.includes('2. Montagem')){
+    return `<span style="background:#2f6fb2;${base}">${s}</span>`;
+  }
+  if(s.includes('3. Expedi')){
+    return `<span style="background:#e07b1a;${base}">${s}</span>`;
+  }
+  if(s.includes('4. Entregue')){
+    return `<span style="background:#2d8a4e;${base}">${s}</span>`;
+  }
+  return `<span style="background:#555;${base}">${s}</span>`;
+}
+function prazoStyle(prazo){
+  const d=diasP(prazo);
+  if(d===null) return '';
+  if(d<0) return 'color:#cc0000;font-weight:700';
+  if(d<15) return 'color:#cc6600;font-weight:700';
+  return 'color:#1a5a2a';
+}
+function roleBadge(role){
+  const m={admin:'role-admin',producao:'role-producao',almox:'role-almox',viewer:'role-viewer'};
+  const l={admin:'Admin',producao:'Produção',almox:'Almoxarifado',viewer:'Visualizador'};
+  return `<span class="role-badge ${m[role]||'role-viewer'}">${l[role]||role}</span>`;
+}
+function showToast(msg,type='ok',dur=3000){
+  const t=$('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+function showLoading(msg='Carregando...'){
+  $('loading-overlay').style.display='flex';
+  $('loading-msg').textContent=msg;
+}
+function hideLoading(){ $('loading-overlay').style.display='none'; }
+
+// ============================================================
+// RENDER ENGINE
+// ============================================================
+function render(){ $('root').innerHTML = CU ? renderApp() : renderLogin(); }
+
+// ============================================================
+// AUTH — LOGIN / LOGOUT
+// ============================================================
+function renderLogin(){
+  return `<div class="login-wrap">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:24px">
+      <div class="sb-mark" style="font-size:26px;display:block;font-family:Arial">WEIKU</div>
+      <div style="font-size:10px;color:var(--mut);letter-spacing:2px;text-transform:uppercase;margin-top:5px;font-family:Arial">TEC · Planejamento e Controle de Produção</div>
+    </div>
+    <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:4px">Acesse sua conta</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:20px">Use o e-mail e senha do Firebase Authentication</div>
+    <div id="lerr" class="login-err"></div>
+    <div id="lloading" class="login-loading"><div class="spinner"></div>Autenticando...</div>
+    <div class="login-field"><label>E-mail</label>
+      <input id="iu" type="email" placeholder="seu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div class="login-field"><label>Senha</label>
+      <input id="ip" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn-login" onclick="doLogin()">Entrar</button>
+    <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--mut)">
+      <a href="#" onclick="doForgotPassword()" style="color:var(--acc);text-decoration:none">Esqueci minha senha</a>
+    </div>
+  </div></div>`;
+}
+
+async function doLogin(){
+  const email = ($('iu')||{value:''}).value.trim();
+  const pass  = ($('ip')||{value:''}).value;
+  const err   = $('lerr');
+  const load  = $('lloading');
+  if(!email||!pass){ if(err){err.textContent='Preencha e-mail e senha.';err.style.display='block';} return; }
+  if(err) err.style.display='none';
+  if(load) load.style.display='block';
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged cuida do resto
+  } catch(e){
+    if(load) load.style.display='none';
+    if(err){
+      err.textContent = e.code==='auth/wrong-password'||e.code==='auth/user-not-found'
+        ? 'E-mail ou senha incorretos.' : e.message;
+      err.style.display='block';
+    }
+  }
+}
+
+async function doForgotPassword(){
+  const email = prompt('Digite seu e-mail para redefinição de senha:');
+  if(!email) return;
+  try{
+    await auth.sendPasswordResetEmail(email);
+    showToast('E-mail de redefinição enviado!','ok');
+  } catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+function doLogout(){
+  if(unsubPedidos){ unsubPedidos(); unsubPedidos=null; }
+  if(unsubEfetividade){ unsubEfetividade(); unsubEfetividade=null; }
+  auth.signOut();
+}
+
+// ============================================================
+// AUTH STATE OBSERVER
+// ============================================================
+auth.onAuthStateChanged(async user => {
+  if(!user){
+    if(unsubEfetividade){ unsubEfetividade(); unsubEfetividade=null; }
+    CU=null; pedidos=[]; efetividadeRegs=[]; render(); return;
+  }
+  showLoading('Carregando perfil...');
+  try{
+    const doc = await db.collection('users').doc(user.uid).get();
+    if(!doc.exists){
+      showToast('Usuário sem perfil cadastrado. Contate o administrador.','err',5000);
+      hideLoading(); doLogout(); return;
+    }
+    const data = doc.data();
+    CU = {
+      uid:         user.uid,
+      email:       user.email,
+      name:        data.name || user.email,
+      role:        data.role || 'viewer',
+      permissions: data.permissions || ROLE_DEFAULTS[data.role] || ROLE_DEFAULTS.viewer
+    };
+    activePage = 'dashboard';
+    await loadConfig();
+    subscribeToOrders();
+    subscribeToEfetividade();
+    hideLoading();
+    render();
+  } catch(e){
+    hideLoading();
+    showToast('Erro ao carregar perfil: '+e.message,'err',5000);
+  }
+});
+
+// ============================================================
+// FIRESTORE — CONFIG
+// ============================================================
+async function loadConfig(){
+  try{
+    const doc = await db.collection('config').doc('setores').get();
+    if(doc.exists && doc.data().list) customSetores = doc.data().list;
+  } catch(e){ console.warn('Config load error',e); }
+}
+async function saveConfig(){
+  try{
+    await db.collection('config').doc('setores').set({ list: customSetores });
+    showToast('Setores salvos!','ok');
+  } catch(e){ showToast('Erro ao salvar setores: '+e.message,'err'); }
+}
+
+// ============================================================
+// FIRESTORE — PEDIDOS (realtime)
+// ============================================================
+function subscribeToOrders(){
+  if(unsubPedidos) unsubPedidos();
+  unsubPedidos = db.collection('pedidos')
+    .onSnapshot(snap => {
+      pedidos = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      pedidos = getOrderedPedidos();
+      if(CU) render();
+    }, e => { showToast('Erro tempo real: '+e.message,'err'); });
+}
+
+function subscribeToEfetividade(){
+  if(unsubEfetividade) unsubEfetividade();
+  unsubEfetividade = db.collection('efetividadeSemanal')
+    .orderBy('weekStart','desc')
+    .onSnapshot(snap=>{
+      efetividadeRegs = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      if(!efetividadeWeekSel) efetividadeWeekSel = getISOWeekInfo(new Date()).weekKey;
+      if(CU && activePage==='efetividade') render();
+    }, e => { showToast('Erro efetividade: '+e.message,'err'); });
+}
+async function saveEfetividadeSemanal(record){
+  const info = parseWeekInputToInfo(record.weekKey);
+  const payload = {
+    weekKey: info.weekKey,
+    weekStart: info.weekStart,
+    weekEnd: info.weekEnd,
+    horasTrabalhadas: normalizeHours(record.horasTrabalhadas),
+    horasExtras: normalizeHours(record.horasExtras),
+    horasImprodutivas: normalizeHours(record.horasImprodutivas),
+    urpsOverride: normalizeHours(record.urpsOverride),
+    atualizadoPor: CU ? CU.name : '',
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  await db.collection('efetividadeSemanal').doc(info.weekKey).set(payload, {merge:true});
+}
+
+async function savePedido(data, id=null){
+  if(id){
+    await db.collection('pedidos').doc(id).update({ ...data, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+  } else {
+    const lista = getOrderedPedidos();
+    const menorOrdem = lista.length ? (Number(lista[0].ordem) || 10) : 10;
+    const novaOrdem = Number.isFinite(Number(data.ordem)) ? Number(data.ordem) : (menorOrdem - 10);
+    await db.collection('pedidos').add({ ...data, ordem:novaOrdem, criadoEm: firebase.firestore.FieldValue.serverTimestamp(), atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+  }
+}
+
+async function deletePedido(id){
+  await db.collection('pedidos').doc(id).delete();
+}
+
+// ============================================================
+// FIRESTORE — USUÁRIOS
+// ============================================================
+async function loadUsers(){
+  const snap = await db.collection('users').get();
+  allUsers = snap.docs.map(d => ({ uid:d.id, ...d.data() }));
+}
+
+async function saveUser(uid, data){
+  await db.collection('users').doc(uid).set(data, { merge:true });
+}
+
+async function createUserAccount(email, password, name, role, permissions){
+  // Cria no Firebase Auth via API Admin (não disponível no client SDK)
+  // Workaround: cria com auth atual e salva perfil no Firestore
+  // Na prática, o admin deve criar usuários no console Firebase ou via Cloud Function
+  // Aqui salvamos apenas o perfil (assumindo que o auth já existe)
+  const uid = 'pending_'+Date.now();
+  await db.collection('users').doc(uid).set({ email, name, role, permissions, pendingAuth:true, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  showToast('Perfil criado! O usuário deve ser criado no Firebase Console > Authentication.','info',6000);
+}
+
+// ============================================================
+// APP SHELL
+// ============================================================
+function renderApp(){
+  const isAdmin = CU.role==='admin' || can('usuarios');
+  function ni(pg, icon, lbl){
+    return `<div class="nav-item ${activePage===pg?'active':''}" onclick="navTo('${pg}')">${icon} ${lbl}</div>`;
+  }
+  return `<div class="app-wrap">
+    <div class="sidebar">
+      <div class="sb-logo"><div class="sb-mark">WEIKU</div><div class="sb-sub">TEC · PCP</div></div>
+      <div style="flex:1;overflow-y:auto">
+        <div class="sb-sec">Painel</div>
+        ${ni('dashboard','▦','Dashboard')}
+        <div class="sb-sec">Produção</div>
+        ${ni('pedidos','≡','Pedidos')}
+        ${ni('expedicao','◎','Expedição')}
+        ${ni('efetividade','◔','Efetividade')}
+        ${can('usuarios')||CU.role==='admin'?`<div class="sb-sec">Admin</div>${ni('usuarios','👥','Usuários')}${ni('config','⚙','Configurações')}`:''}
+      </div>
+      <div class="sb-footer">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div class="sb-av" style="background:${CU.role==='admin'?'#1e5a3a':CU.role==='producao'?'#e07b1a':'#2a8080'};color:#fff">${(CU.name||'?')[0].toUpperCase()}</div>
+          <div>
+            <div style="font-size:12px;color:var(--txt);font-weight:700;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${CU.name}</div>
+            <div style="font-size:10px;color:var(--mut)">${roleBadge(CU.role)}</div>
+          </div>
+        </div>
+        <div class="logout-btn" onclick="doLogout()">⏻ Sair</div>
+      </div>
+    </div>
+    <div class="main-area">
+      <div class="page ${activePage==='dashboard'?'active':''}">${activePage==='dashboard'?renderDash():''}</div>
+      <div class="page ${activePage==='pedidos'?'active':''}">${activePage==='pedidos'?renderPedidos():''}</div>
+      <div class="page ${activePage==='expedicao'?'active':''}">${activePage==='expedicao'?renderExp():''}</div>
+      <div class="page ${activePage==='efetividade'?'active':''}">${activePage==='efetividade'?renderEfetividade():''}</div>
+      <div class="page ${activePage==='usuarios'?'active':''}">${activePage==='usuarios'?renderUsuarios():''}</div>
+      <div class="page ${activePage==='config'?'active':''}">${activePage==='config'?renderCfg():''}</div>
+    </div>
+  </div>
+  ${renderModal()}`;
+}
+
+function navTo(pg){
+  activePage=pg; modalState=null;
+  if(pg==='usuarios') loadUsers().then(()=>render());
+  else render();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDash(){
+  const ep=pedidos.filter(p=>p.status==='Em produção');
+  const ag=pedidos.filter(p=>p.status==='Aguardando coleta');
+  const at=pedidos.filter(p=>p.prior==='ATRASADO');
+  const pd=pedidos.filter(p=>!p.status||p.status==='Pendente');
+  const allS=['Pendente',...customSetores];
+  const hoje=new Date();
+  const kanban=allS.map(s=>{
+    const l=s==='Pendente'?pedidos.filter(p=>!p.setor||p.status==='Pendente'):pedidos.filter(p=>p.setor===s&&p.status!=='Finalizado'&&p.status!=='Pendente');
+    return `<div class="k-col"><div class="k-title">${s}</div><div class="k-cnt">${l.length}</div><div class="k-urp">${urpTotal(l).toFixed(1)} URPs</div></div>`;
+  }).join('');
+  const atList=pedidos.filter(p=>p.prazo&&(new Date(p.prazo+'T12:00:00')-hoje)<0&&p.status!=='Finalizado').slice(0,6)
+    .map(p=>`<div class="pitem"><span>${p.at} — ${(p.cliente||'').split(' ').slice(0,2).join(' ')}</span><span style="color:#cc0000;font-weight:700">${Math.abs(Math.round((new Date(p.prazo+'T12:00:00')-hoje)/864e5))}d</span></div>`)
+    .join('')||'<div style="color:#aaa;font-size:11px;padding:5px 0">Nenhum</div>';
+  const alList=pedidos.filter(p=>{if(!p.prazo)return false;const d=(new Date(p.prazo+'T12:00:00')-hoje)/864e5;return d>=0&&d<15&&p.status!=='Finalizado';}).slice(0,6)
+    .map(p=>{const d=Math.round((new Date(p.prazo+'T12:00:00')-hoje)/864e5);return`<div class="pitem"><span>${p.at} — ${(p.cliente||'').split(' ').slice(0,2).join(' ')}</span><span style="color:#cc6600;font-weight:700">${d}d</span></div>`;})
+    .join('')||'<div style="color:#aaa;font-size:11px;padding:5px 0">Nenhum</div>';
+  return `<div class="dash-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:var(--ph)">Dashboard de Produção</div>
+      <div class="urp-total">Total URPs ativas: ${urpTotal(pedidos.filter(p=>p.status!=='Finalizado')).toFixed(2)}</div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-inf"><div class="kpi-lbl">Em produção</div><div class="kpi-val">${ep.length}</div><div class="kpi-sub">${urpTotal(ep).toFixed(1)} URPs</div></div>
+      <div class="kpi-card kpi-war"><div class="kpi-lbl">Ag. coleta</div><div class="kpi-val">${ag.length}</div><div class="kpi-sub">${urpTotal(ag).toFixed(1)} URPs</div></div>
+      <div class="kpi-card kpi-dan"><div class="kpi-lbl">Atrasados</div><div class="kpi-val">${at.length}</div><div class="kpi-sub">${urpTotal(at).toFixed(1)} URPs</div></div>
+      <div class="kpi-card kpi-ok"><div class="kpi-lbl">Pendente</div><div class="kpi-val">${pd.length}</div><div class="kpi-sub">${urpTotal(pd).toFixed(1)} URPs</div></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--ph);text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px">Kanban por setor</div>
+    <div class="kanban-grid">${kanban}</div>
+    <div class="prazo-grid">
+      <div class="prazo-card"><div class="prazo-card-hdr" style="border-color:#cc2222;color:#cc2222">● Atrasados</div>${atList}</div>
+      <div class="prazo-card"><div class="prazo-card-hdr" style="border-color:var(--pexp);color:#cc6600">▲ Alerta — menos de 15 dias</div>${alList}</div>
+    </div>
+  </div>`;
+}
+
+
+// ============================================================
+// EFETIVIDADE
+// ============================================================
+function renderEfetividade(){
+  const currentWeek = parseWeekInputToInfo(efetividadeWeekSel || getISOWeekInfo(new Date()).weekKey);
+  const selected = getEfetividadeReg(currentWeek.weekKey) || {
+    weekKey: currentWeek.weekKey,
+    weekStart: currentWeek.weekStart,
+    weekEnd: currentWeek.weekEnd,
+    horasTrabalhadas: '',
+    horasExtras: '',
+    horasImprodutivas: ''
+  };
+  const selectedEnriched = enrichEfetividadeReg({
+    ...selected,
+    weekStart: currentWeek.weekStart,
+    weekEnd: currentWeek.weekEnd
+  });
+  const latestBase = efetividadeRegs.length ? efetividadeRegs[0] : selected;
+  const latest = enrichEfetividadeReg(latestBase);
+  const month = getCurrentMonthEfetividade();
+  const hist = efetividadeRegs.slice().sort((a,b)=>(a.weekStart<b.weekStart?1:-1)).slice(0,10).map(r=>{
+    const e = enrichEfetividadeReg(r);
+    return `<tr>
+      <td>${r.weekKey}</td>
+      <td>${fmt(r.weekStart)} a ${fmt(r.weekEnd)}</td>
+      <td>${e.urpsFinalizadas.toFixed(2)}</td>
+      <td>${normalizeHours(r.horasTrabalhadas).toFixed(1)}</td>
+      <td>${normalizeHours(r.horasExtras).toFixed(1)}</td>
+      <td>${normalizeHours(r.horasImprodutivas).toFixed(1)}</td>
+      <td>${fmtPct(e.efetiv)}</td>
+      <td><span class="efet-badge ${e.faixa.cls}">${e.faixa.label}</span></td>
+    </tr>`;
+  }).join('');
+  return `<div class="efet-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:700;color:var(--ph)">Efetividade</div>
+      <div class="efet-mini">Efetiv = URPs finalizadas / (horas trabalhadas + horas extras - horas improdutivas)</div>
+    </div>
+
+    <div class="efet-kpi-wrap">
+      <div class="efet-kpi efet-${latest.faixa.cls}">
+        <div class="lbl">Última semana lançada</div>
+        <div class="val">${fmtPct(latest.efetiv)}</div>
+        <div class="sub">${latest.weekKey || 'Sem lançamento'} · ${latest.urpsFinalizadas.toFixed(2)} URPs finalizadas</div>
+        <div style="margin-top:8px"><span class="efet-badge ${latest.faixa.cls}">${latest.faixa.label}</span></div>
+      </div>
+      <div class="efet-kpi efet-${month.faixa.cls}">
+        <div class="lbl">Efetividade do mês atual</div>
+        <div class="val">${fmtPct(month.efetiv)}</div>
+        <div class="sub">${month.urps.toFixed(2)} URPs · ${month.regs.length} semana(s) lançada(s)</div>
+        <div style="margin-top:8px"><span class="efet-badge ${month.faixa.cls}">${month.faixa.label}</span></div>
+      </div>
+    </div>
+
+    <div class="efet-grid">
+      <div class="efet-card">
+        <div class="efet-title">Lançamento semanal</div>
+        <div class="efet-form-grid">
+          <div class="mfl"><label>Semana</label><input type="week" id="ef-week" value="${currentWeek.weekKey}" onchange="handleEfetividadeWeekChange()"/></div>
+          <div class="mfl"><label>${CU && CU.role==='admin' ? 'URPs da semana (simulação admin)' : 'URPs finalizadas na semana'}</label><input type="number" step="0.01" id="ef-urps" value="${selectedEnriched.urpsFinalizadas.toFixed(2)}" ${CU && CU.role==='admin' ? 'oninput="updateEfetividadePreview()"' : 'readonly class="readonly-field"'}/></div>
+          <div class="mfl"><label>Horas trabalhadas</label><input type="number" step="0.01" id="ef-htrab" value="${selected.horasTrabalhadas ?? ''}" oninput="updateEfetividadePreview()"/></div>
+          <div class="mfl"><label>Horas extras</label><input type="number" step="0.01" id="ef-hextra" value="${selected.horasExtras ?? ''}" oninput="updateEfetividadePreview()"/></div>
+          <div class="mfl"><label>Horas improdutivas</label><input type="number" step="0.01" id="ef-himp" value="${selected.horasImprodutivas ?? ''}" oninput="updateEfetividadePreview()"/></div>
+          <div class="mfl"><label>Efetividade prevista</label><div id="ef-prev-box" class="${priorModalCls('NORMAL')}" style="height:38px;display:flex;align-items:center">${fmtPct(selectedEnriched.efetiv)} · ${selectedEnriched.faixa.label}</div></div>
+        </div>
+        <div class="efet-stat-grid">
+          <div class="efet-stat"><div class="l">Semana</div><div class="n">${currentWeek.weekKey}</div></div>
+          <div class="efet-stat"><div class="l">Período</div><div class="n" style="font-size:14px">${fmt(currentWeek.weekStart)}<br>${fmt(currentWeek.weekEnd)}</div></div>
+          <div class="efet-stat"><div class="l">Horas líquidas</div><div class="n" id="ef-hliq">${(normalizeHours(selected.horasTrabalhadas)+normalizeHours(selected.horasExtras)-normalizeHours(selected.horasImprodutivas)).toFixed(1)}</div></div>
+          <div class="efet-stat"><div class="l">Faixa</div><div class="n" id="ef-faixa" style="font-size:16px">${selectedEnriched.faixa.label}</div></div>
+        </div>
+        <div class="modal-foot" style="margin-top:14px">
+          ${CU && CU.role==='admin' ? '<div style="margin-right:auto;font-size:11px;color:#cc6600;align-self:center">Administrador pode editar e simular as URPs da semana.</div>' : ''}
+          ${can('editar')||can('criar')?`<button class="mBtn green" onclick="saveEfetividadeForm()">Salvar semana</button>`:''}
+        </div>
+      </div>
+
+      <div class="efet-card">
+        <div class="efet-title">Resumo do mês atual</div>
+        <div class="efet-stat-grid">
+          <div class="efet-stat"><div class="l">URPs finalizadas</div><div class="n">${month.urps.toFixed(2)}</div></div>
+          <div class="efet-stat"><div class="l">Horas trabalhadas</div><div class="n">${month.horasTrab.toFixed(1)}</div></div>
+          <div class="efet-stat"><div class="l">Horas extras</div><div class="n">${month.horasExt.toFixed(1)}</div></div>
+          <div class="efet-stat"><div class="l">Improdutivas</div><div class="n">${month.horasImp.toFixed(1)}</div></div>
+        </div>
+        <div style="margin-top:14px;padding:12px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa">
+          <div style="font-size:11px;color:#666;font-weight:700;text-transform:uppercase;margin-bottom:4px">Classificação</div>
+          <div style="font-size:24px;font-weight:700;color:#1e5a3a">${fmtPct(month.efetiv)}</div>
+          <div style="margin-top:8px"><span class="efet-badge ${month.faixa.cls}">${month.faixa.label}</span></div>
+          <div class="efet-mini" style="margin-top:8px">
+            Ruim: abaixo de 82,5% · Regular: 82,5% a 90% · Bom: 90% a 97% · Muito bom: acima de 97%
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="efet-card">
+      <div class="efet-title">Histórico semanal</div>
+      <table class="efet-table">
+        <thead>
+          <tr>
+            <th>Semana</th>
+            <th>Período</th>
+            <th>URPs finalizadas</th>
+            <th>H. trabalhadas</th>
+            <th>H. extras</th>
+            <th>H. improdutivas</th>
+            <th>Efetividade</th>
+            <th>Faixa</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${hist || '<tr><td colspan="8" style="text-align:center;color:#888">Nenhum lançamento semanal ainda.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function handleEfetividadeWeekChange(){
+  efetividadeWeekSel = fv('ef-week') || getISOWeekInfo(new Date()).weekKey;
+  render();
+}
+function updateEfetividadePreview(){
+  const info = parseWeekInputToInfo(fv('ef-week'));
+  const urpsAuto = getURPsFinalizadasPeriodo(info.weekStart, info.weekEnd);
+  const urps = (CU && CU.role==='admin') ? normalizeHours(fv('ef-urps')) : urpsAuto;
+  const hTrab = normalizeHours(fv('ef-htrab'));
+  const hExt  = normalizeHours(fv('ef-hextra'));
+  const hImp  = normalizeHours(fv('ef-himp'));
+  const efetiv = calcEfetividadeValue(urps, hTrab, hExt, hImp);
+  const faixa = getEfetividadeFaixa(efetiv);
+  const prev = $('ef-prev-box');
+  if(prev){
+    prev.textContent = `${fmtPct(efetiv)} · ${faixa.label}`;
+    prev.className = faixa.cls==='ruim' ? 'prior-display prior-atras-bg' :
+                     faixa.cls==='regular' ? 'prior-display prior-prior-bg' :
+                     'prior-display prior-normal-bg';
+  }
+  if($('ef-urps') && !(CU && CU.role==='admin' && document.activeElement === $('ef-urps'))) $('ef-urps').value = urps.toFixed(2);
+  if($('ef-hliq')) $('ef-hliq').textContent = (hTrab + hExt - hImp).toFixed(1);
+  if($('ef-faixa')) $('ef-faixa').textContent = faixa.label;
+}
+async function saveEfetividadeForm(){
+  const weekKey = fv('ef-week');
+  if(!weekKey){ showToast('Selecione a semana.','err'); return; }
+  try{
+    showLoading('Salvando efetividade semanal...');
+    await saveEfetividadeSemanal({
+      weekKey,
+      horasTrabalhadas: fv('ef-htrab'),
+      horasExtras: fv('ef-hextra'),
+      horasImprodutivas: fv('ef-himp'),
+      urpsOverride: (CU && CU.role==='admin') ? fv('ef-urps') : ''
+    });
+    efetividadeWeekSel = weekKey;
+    hideLoading();
+    showToast('Semana salva!','ok');
+  } catch(e){
+    hideLoading();
+    showToast('Erro ao salvar efetividade: '+e.message,'err');
+  }
+}
+
+// ============================================================
+// PEDIDOS
+// ============================================================
+function renderPedidos(){
+  const ordered = getOrderedPedidos();
+  const list=ordered.filter(p=>{
+    const mq=!pedSearch||((p.at||'')+(p.cliente||'')+(p.cidade||'')).toLowerCase().includes(pedSearch);
+    const ms=!pedFst
+      || (pedFst==='Em produção' && (((p.setor||'').includes('1. Corte')) || ((p.setor||'').includes('2. Montagem'))))
+      || (pedFst==='Pendente' && (!p.status || p.status==='Pendente'))
+      || (pedFst==='Aguardando coleta' && ((p.setor||'').includes('3. Expedi')))
+      || (pedFst==='Finalizado' && (p.status==='Finalizado' || (p.setor||'').includes('Entregue')))
+      || (p.status===pedFst && pedFst!=='Em produção');
+    const ma=!pedFano||String(p.ano)===pedFano;
+    const mm=!pedFMeses.length||pedFMeses.includes(String(p.mes||''));
+    const mp=!pedFpersiana||(pedFpersiana==='sim'?(p.persiana&&p.persiana!=='N/A'):(p.persiana==='N/A'||!p.persiana));
+    return mq&&ms&&ma&&mm&&mp;
+  });
+  const totalURP=urpTotal(list).toFixed(2);
+  const dragEnabled = can('editar') && !hasPedidoFilters();
+
+  const rows=list.map((p,i)=>{
+    const cpBg=COR_PED_BG[p.corPed]||'#f8f8f8', cpFg=COR_PED_FG[p.corPed]||'#333';
+    const ri=p.ressalvas&&p.ressalvas.length?`<span style="color:#e07b1a;font-size:10px;margin-left:3px;cursor:pointer" title="${p.ressalvas[p.ressalvas.length-1].texto}" onclick="openDet('${p.id}')">⚠${p.ressalvas.length}</span>`:'';
+    const ps=prazoStyle(p.prazo);
+    const bRow=i%2===0?'#fff':'#f0f4f0';
+    let ac=`<button onclick="openDet('${p.id}')" style="padding:3px 7px;border:1px solid var(--ph);background:#fff;color:var(--ph);border-radius:3px;cursor:pointer;font-size:10px;font-weight:700">Ver</button>`;
+    if(can('avancar')&&p.setor&&!p.setor.includes('Expedi')&&!p.setor.includes('Entregue')&&p.status!=='Finalizado')
+      ac+=` <button onclick="avancarSetor('${p.id}')" style="padding:3px 7px;border:1px solid var(--pconcl);background:#fff;color:var(--pconcl);border-radius:3px;cursor:pointer;font-size:10px;font-weight:700" title="Avançar setor">›</button>`;
+    if(can('coleta')&&(p.status==='Aguardando coleta' || (p.setor||'').includes('3. Expedi')))
+      ac+=` <button onclick="openColeta('${p.id}')" style="padding:3px 7px;background:var(--pcoleta);border:none;color:#fff;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700">Coleta</button>`;
+    if(can('deletar')&&p.status!=='Finalizado')
+      ac+=` <button onclick="confirmDelete('${p.id}')" style="padding:3px 7px;border:1px solid #cc2222;background:#fff;color:#cc2222;border-radius:3px;cursor:pointer;font-size:10px" title="Excluir">✕</button>`;
+
+    const editCell=(field, value, type='text')=>can('editar')
+      ? `<td class="editable-cell" style="border:1px solid var(--pbor);padding:5px 7px;cursor:pointer" ondblclick="startInlineEdit('${p.id}','${field}',this,'${type}')" title="Duplo clique para editar">${value||'—'}</td>`
+      : `<td style="border:1px solid var(--pbor);padding:5px 7px">${value||'—'}</td>`;
+
+    const dragTd = dragEnabled
+      ? `<td class="drag-col" style="border:1px solid var(--pbor);padding:5px 4px"><span class="drag-handle" title="Arrastar para reordenar" draggable="true" ondragstart="handleDragStart(event,'${p.id}')" ondragend="handleDragEnd()">⋮⋮</span></td>`
+      : `<td class="drag-col" style="border:1px solid var(--pbor);padding:5px 4px;color:#ccc">⋮⋮</td>`;
+
+    // Build cell map keyed by column key
+    const cellMap = {
+      ano:      `<td style="border:1px solid var(--pbor);padding:5px 7px;color:#888;font-size:10px">${p.ano||'—'}</td>`,
+      mes:      `<td style="border:1px solid var(--pbor);padding:5px 7px;font-weight:700;color:var(--ph)">${(p.mes||'').replace(/^\d+\. /,'')}</td>`,
+      id:       `<td style="border:1px solid var(--pbor);padding:5px 7px;text-align:center"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;background:${COR_SEMANA_BADGE[p.corSemana]||'#555'}">${p.numPed||'—'}</span></td>`,
+      nomes:    `<td style="border:1px solid var(--pbor);padding:5px 9px;text-align:left">${(p.cliente||'').length>30?(p.cliente||'').substr(0,30)+'…':(p.cliente||'')}${ri}</td>`,
+      pedido:   `<td style="border:1px solid var(--pbor);padding:5px 7px;text-align:left;font-weight:700;color:#1a3a6a">${p.at||''}</td>`,
+      cidade:   `<td style="border:1px solid var(--pbor);padding:5px 7px">${p.cidade||'—'}</td>`,
+      uf:       `<td style="border:1px solid var(--pbor);padding:5px 7px;color:#888">${p.uf||''}</td>`,
+      urp:      `<td style="border:1px solid var(--pbor);padding:5px 7px;font-weight:700">${(p.urp||0).toFixed(2)}</td>`,
+      dtImp:    `<td style="border:1px solid var(--pbor);padding:5px 7px;color:#888">${fmt(p.dtImp)}</td>`,
+      setor:    `<td style="border:1px solid var(--pbor);padding:5px 7px">${setorBadge(p.setor)}</td>`,
+      prazo:    `<td style="border:1px solid var(--pbor);padding:5px 7px;${ps}">${p.prazo?fmt(p.prazo):'—'}</td>`,
+      prioridade:`<td style="border:1px solid var(--pbor);padding:5px 7px">${priorHTML(p.prior)}</td>`,
+      prevTEC:  editCell('prevTEC', fmt(p.prevTEC), 'date'),
+      conclProd:editCell('conclProd', fmt(p.conclProd), 'date'),
+      coleta:   `<td style="border:1px solid var(--pbor);padding:5px 7px;color:${p.coleta?'var(--pcoleta)':'#ccc'};font-weight:${p.coleta?'700':'400'}">${fmt(p.coleta)||'—'}</td>`,
+      corPed:   `<td style="border:1px solid var(--pbor);padding:5px 7px"><span style="background:${cpBg};color:${cpFg};border:1px solid #bbb;padding:2px 7px;border-radius:3px;font-size:10px;display:inline-block;max-width:100%;white-space:normal;word-break:break-word;line-height:1.1">${COR_PED_NOMES[p.corPed]||'—'}</span></td>`,
+      persiana: `<td style="border:1px solid var(--pbor);padding:5px 7px;color:#666">${p.persiana||'N/A'}</td>`,
+      acoes:    `<td class="acoes-col" style="border:1px solid var(--pbor);padding:5px 7px;white-space:nowrap">${ac}</td>`,
+    };
+
+    return `<tr style="background:${bRow}" data-pedido-id="${p.id}" ${dragEnabled?`ondragover="handleDragOver(event,'${p.id}')" ondrop="handleDrop(event,'${p.id}')" ondragleave="handleDragLeave(event,'${p.id}')"`:''}>
+      ${dragTd}
+      ${colOrder.filter(key=>!colHidden.has(key)).map(key=>cellMap[key]||'').join('')}
+    </tr>`;
+  }).join('');
+
+  const mkSel=(id,v,opts)=>`<select id="${id}" class="sSel" onchange="pedF('${id}',this.value)">${opts.map(([ov,ol])=>`<option value="${ov}"${v===ov?' selected':''}>${ol}</option>`).join('')}</select>`;
+  const reorderHint = dragEnabled
+    ? `<span class="reorder-hint">↕ Arraste pela alça para mudar a sequência dos pedidos</span>`
+    : (can('editar') ? `<span class="reorder-hint warn">Para reordenar, limpe busca e filtros</span>` : '');
+
+  return `<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <div class="sheet-toolbar">
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;width:100%">
+        <span class="sheet-title">Pedidos de produção</span>
+        <div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #bbb;border-radius:4px;padding:4px 9px;min-width:220px;flex:1">
+          <span style="color:#aaa">⌕</span>
+          <input type="text" placeholder="Buscar AT, cliente, cidade..." value="${pedSearch}" oninput="pedF('srch',this.value)" class="sInput" style="border:none;padding:0;min-width:120px;background:none;width:100%"/>
+        </div>
+        ${mkSel('fst',pedFst,[['','Todos os status'],['Em produção','Em produção'],['Aguardando coleta','Aguardando coleta'],['Atrasado','Atrasado'],['Finalizado','Finalizado'],['Pendente','Pendente']])}
+        ${mkSel('fano',pedFano,[['','Todos os anos'],['2026','2026'],['2025','2025'],['2024','2024']])}
+        <div style="position:relative">
+          <button type="button" class="sBtn" onclick="toggleMonthMenu()">Mês: ${monthFilterLabel()}</button>
+          ${pedMonthMenuOpen ? `<div style="position:absolute;top:calc(100% + 6px);left:0;z-index:50;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.12);padding:10px;min-width:220px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+              <strong style="font-size:11px;color:var(--ph)">Filtrar meses</strong>
+              <button type="button" class="sBtn" style="padding:3px 8px;font-size:10px" onclick="clearMonthFilter()">Limpar</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:220px;overflow:auto">
+              ${MONTH_OPTIONS.map(m=>`<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:#333"><input type="checkbox" ${pedFMeses.includes(m)?'checked':''} onchange="toggleMonthValue(${JSON.stringify(m)})"> <span>${m.replace(/^\d+\. /,'')}</span></label>`).join('')}
+            </div>
+          </div>` : ''}
+        </div>
+        ${mkSel('fpersiana',pedFpersiana,[['','Persiana: todos'],['sim','Com persiana'],['nao','Sem persiana']])}
+        <span class="urp-total">Total: ${totalURP} URPs</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;width:100%">
+        ${can('criar')?`<button class="sBtn green" onclick="openModal('novo')">+ Novo pedido</button>`:''}
+        ${can('exportar')?`<button class="sBtn teal" onclick="exportExcel()">↓ Exportar Excel</button>`:''}
+        ${can('exportar')?`<button class="sBtn" onclick="printReport()">🖨 Imprimir relatório</button>`:''}
+        ${can('importar')?`<button class="sBtn orange" onclick="openModal('importar')">↑ Importar Excel</button>`:''}
+        <button class="sBtn" onclick="openModal('colunas')" title="Mostrar/ocultar colunas" style="display:flex;align-items:center;gap:4px">⊞ <span>Colunas${colHidden.size>0 ? ' <span style=\'background:#e07b1a;color:#fff;border-radius:10px;padding:0 5px;font-size:9px;font-weight:700\'>' + colHidden.size + '</span>' : ''}</span></button>
+        ${can('editar')?`<span style="font-size:10px;color:#888;margin-left:4px">✎ Duplo clique na célula para editar</span>`:''}
+        ${reorderHint}
+      </div>
+    </div>
+    <div class="tbl-outer">
+      <table class="sheet">
+        <thead><tr>
+          <th class="th-main drag-col" title="Reordenar linhas">↕</th>
+          ${colOrder.filter(key=>!colHidden.has(key)).map(key=>{
+            const c=COL_DEFS.find(x=>x.key===key); if(!c) return '';
+            const wideStyle=c.wide?'min-width:160px;text-align:left':'';
+            return `<th class="${c.cls}" style="${wideStyle}" draggable="true"
+              ondragstart="colDragStart(event,'${c.key}')"
+              ondragover="colDragOver(event,'${c.key}')"
+              ondrop="colDrop(event,'${c.key}')"
+              ondragleave="colDragLeave(event,'${c.key}')"
+              ondragend="colDragEnd()"
+              title="Arrastar para mover coluna">${c.label}</th>`;
+          }).join('')}
+        </tr></thead>
+        <tbody>${rows||`<tr><td colspan="19" style="text-align:center;padding:20px;color:#aaa;border:1px solid var(--pbor)">Nenhum pedido encontrado</td></tr>`}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+// ============================================================
+// FILTROS
+// ============================================================
+function pedF(id,v){
+  if(id==='srch')       pedSearch=v.toLowerCase().trim();
+  else if(id==='fst')   pedFst=v;
+  else if(id==='fano')  pedFano=v;
+  else if(id==='fpersiana') pedFpersiana=v;
+  pedMonthMenuOpen=false;
+  render();
+}
+function toggleMonthMenu(){
+  pedMonthMenuOpen = !pedMonthMenuOpen;
+  render();
+}
+function toggleMonthValue(month){
+  if(pedFMeses.includes(month)) pedFMeses = pedFMeses.filter(m=>m!==month);
+  else pedFMeses = [...pedFMeses, month];
+  pedMonthMenuOpen = true;
+  render();
+}
+function clearMonthFilter(){
+  pedFMeses = [];
+  pedMonthMenuOpen = false;
+  render();
+}
+
+// ============================================================
+// IMPRESSÃO / REORDENAÇÃO
+// ============================================================
+function printReport(){
+  const prevTitle = document.title;
+  document.title = `Relatorio_Pedidos_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}`;
+  window.print();
+  setTimeout(()=>{ document.title = prevTitle; }, 300);
+}
+
+function clearDragMarkers(){
+  document.querySelectorAll('tr.dragging,tr.drag-over-top,tr.drag-over-bottom').forEach(el=>{
+    el.classList.remove('dragging','drag-over-top','drag-over-bottom');
+  });
+}
+
+function handleDragStart(ev, pedidoId){
+  if(hasPedidoFilters()){
+    ev.preventDefault();
+    showToast('Limpe busca e filtros para reordenar.','info');
+    return;
+  }
+  dragPedidoId = pedidoId;
+  const tr = ev.target.closest('tr');
+  if(tr) tr.classList.add('dragging');
+  if(ev.dataTransfer){
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/plain', pedidoId);
+  }
+}
+
+function handleDragOver(ev, pedidoId){
+  if(!dragPedidoId || dragPedidoId===pedidoId || hasPedidoFilters()) return;
+  ev.preventDefault();
+  clearDragMarkers();
+  dragOverPedidoId = pedidoId;
+  const tr = ev.currentTarget;
+  const rect = tr.getBoundingClientRect();
+  const halfway = rect.top + rect.height/2;
+  dragOverPosition = ev.clientY < halfway ? 'before' : 'after';
+  tr.classList.add(dragOverPosition==='before' ? 'drag-over-top' : 'drag-over-bottom');
+}
+
+function handleDragLeave(ev, pedidoId){
+  const tr = ev.currentTarget;
+  if(!tr.contains(ev.relatedTarget)){
+    tr.classList.remove('drag-over-top','drag-over-bottom');
+  }
+}
+
+async function handleDrop(ev, targetPedidoId){
+  ev.preventDefault();
+  if(!dragPedidoId || dragPedidoId===targetPedidoId || hasPedidoFilters()) { handleDragEnd(); return; }
+  try{
+    const ordered = getOrderedPedidos();
+    const sourceIndex = ordered.findIndex(p=>p.id===dragPedidoId);
+    const targetIndex = ordered.findIndex(p=>p.id===targetPedidoId);
+    if(sourceIndex<0 || targetIndex<0){ handleDragEnd(); return; }
+
+    const reordered = [...ordered];
+    const [moved] = reordered.splice(sourceIndex,1);
+    let insertIndex = targetIndex;
+    if(dragOverPosition==='after' && sourceIndex>targetIndex) insertIndex = targetIndex + 1;
+    if(dragOverPosition==='after' && sourceIndex<targetIndex) insertIndex = targetIndex;
+    if(dragOverPosition==='before' && sourceIndex<targetIndex) insertIndex = targetIndex - 1;
+    if(insertIndex < 0) insertIndex = 0;
+    reordered.splice(insertIndex,0,moved);
+
+    pedidos = reordered.map((p,idx)=>({ ...p, ordem:(idx+1)*10 }));
+    render();
+    await persistPedidoOrder(reordered);
+    showToast('Sequência atualizada!','ok',1500);
+  } catch(e){
+    showToast('Erro ao reordenar: '+e.message,'err');
+  } finally {
+    handleDragEnd();
+  }
+}
+
+function handleDragEnd(){
+  dragPedidoId = null;
+  dragOverPedidoId = null;
+  dragOverPosition = null;
+  clearDragMarkers();
+}
+
+async function persistPedidoOrder(orderedList){
+  const batch = db.batch();
+  orderedList.forEach((p,idx)=>{
+    batch.update(db.collection('pedidos').doc(p.id), {
+      ordem:(idx+1)*10,
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  });
+  await batch.commit();
+}
+
+// ============================================================
+// DRAG DE COLUNAS
+// ============================================================
+function colDragStart(ev, key){
+  dragColKey = key;
+  ev.dataTransfer.effectAllowed = 'move';
+  ev.dataTransfer.setData('text/plain', key);
+  // Marca o th como arrastando (pequeno delay para o browser capturar snapshot antes)
+  setTimeout(()=>{
+    document.querySelectorAll('th[draggable="true"]').forEach(th=>{
+      if(th.ondragstart && th.getAttribute('ondragstart')&&th.getAttribute('ondragstart').includes(`'${key}'`))
+        th.classList.add('col-dragging');
+    });
+  }, 0);
+}
+function colDragOver(ev, key){
+  if(!dragColKey || dragColKey===key) return;
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('th').forEach(th=>th.classList.remove('col-drag-over'));
+  document.querySelectorAll('th[draggable="true"]').forEach(th=>{
+    if(th.getAttribute('ondragstart')&&th.getAttribute('ondragstart').includes(`'${key}'`))
+      th.classList.add('col-drag-over');
+  });
+}
+function colDragLeave(ev, key){
+  document.querySelectorAll('th').forEach(th=>th.classList.remove('col-drag-over'));
+}
+function colDrop(ev, targetKey){
+  ev.preventDefault();
+  if(!dragColKey || dragColKey===targetKey){ colDragEnd(); return; }
+  const from = colOrder.indexOf(dragColKey);
+  const to   = colOrder.indexOf(targetKey);
+  if(from<0 || to<0){ colDragEnd(); return; }
+  colOrder.splice(from, 1);
+  colOrder.splice(to, 0, dragColKey);
+  colDragEnd();
+  render();
+}
+function colDragEnd(){
+  dragColKey = null;
+  document.querySelectorAll('th').forEach(th=>{
+    th.classList.remove('col-dragging','col-drag-over');
+  });
+}
+
+// ============================================================
+// INLINE EDIT
+// ============================================================
+function startInlineEdit(pedidoId, field, tdEl, type='text'){
+  const p = pedidos.find(x=>x.id===pedidoId); if(!p) return;
+  const currVal = type==='date' ? toISO(p[field]||'') : (p[field]||'');
+  const inp = document.createElement('input');
+  inp.type = type; inp.value = currVal; inp.className = 'inline-edit';
+  tdEl.innerHTML=''; tdEl.appendChild(inp); inp.focus();
+  inp.onblur = () => commitInlineEdit(pedidoId, field, inp.value, tdEl, type);
+  inp.onkeydown = e => {
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){ render(); }
+  };
+}
+
+async function commitInlineEdit(pedidoId, field, newVal, tdEl, type){
+  if(!newVal) { render(); return; }
+  try{
+    const update = { [field]: newVal };
+    // Recalcula prioridade se prazo foi editado
+    if(field==='prazo') update.prior = calcPrior(newVal);
+    await savePedido(update, pedidoId);
+    showToast('Campo atualizado!','ok',1500);
+  } catch(e){ showToast('Erro: '+e.message,'err'); render(); }
+}
+
+// ============================================================
+// AVANÇAR SETOR
+// ============================================================
+async function avancarSetor(id){
+  const p=pedidos.find(x=>x.id===id); if(!p) return;
+  const idx=SETORES_FLOW.indexOf(p.setor);
+  let newSetor=p.setor, newStatus=p.status;
+  if(idx===-1){ newSetor=SETORES_FLOW[0]; newStatus='Em produção'; }
+  else if(idx<SETORES_FLOW.length-1){
+    newSetor=SETORES_FLOW[idx+1];
+    if(newSetor.includes('Expedi')) newStatus='Aguardando coleta';
+    if(newSetor.includes('Entregue')) newStatus='Finalizado';
+  }
+  try{ await savePedido({setor:newSetor,status:newStatus},id); showToast('Setor avançado!','ok',1500); }
+  catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+// ============================================================
+// DELETE
+// ============================================================
+function confirmDelete(id){
+  const p=pedidos.find(x=>x.id===id);
+  if(!confirm(`Confirmar exclusão do pedido ${p?p.at:''}?`)) return;
+  deletePedido(id).then(()=>showToast('Pedido excluído.','ok')).catch(e=>showToast('Erro: '+e.message,'err'));
+}
+
+// ============================================================
+// EXPEDIÇÃO
+// ============================================================
+function renderExp(){
+  const list=pedidos.filter(p=>p.status==='Aguardando coleta' || (p.setor||'').includes('3. Expedi'));
+  const rows=list.map((p,i)=>{
+    const d=p.conclProd?Math.round((new Date()-new Date(p.conclProd+'T12:00:00'))/864e5):0;
+    const dc=d>10?'#cc0000':d>5?'#cc6600':'#1a7a33';
+    const bRow=i%2===0?'#fff':'#f0f4f0';
+    return `<tr style="background:${bRow}">
+      <td style="border:1px solid var(--pbor);padding:6px 9px;text-align:left;font-weight:700;color:#1a3a6a">${p.at||''}</td>
+      <td style="border:1px solid var(--pbor);padding:6px 9px;text-align:left">${p.cliente||''}</td>
+      <td style="border:1px solid var(--pbor);padding:6px 9px">${p.cidade||'—'}/${p.uf||''}</td>
+      <td style="border:1px solid var(--pbor);padding:6px 9px;font-weight:700">${(p.urp||0).toFixed(1)}</td>
+      <td style="border:1px solid var(--pbor);padding:6px 9px;color:var(--pconcl);font-weight:700">${fmt(p.conclProd)||'—'}</td>
+      <td style="border:1px solid var(--pbor);padding:6px 9px;${prazoStyle(p.prazo)}">${p.prazo?fmt(p.prazo):'—'}</td>
+      <td style="border:1px solid var(--pbor);padding:6px 9px;font-weight:700;color:${dc}">${d}d em exp.</td>
+      <td style="border:1px solid var(--pbor);padding:6px 9px">${can('coleta')?`<button onclick="openColeta('${p.id}')" style="padding:4px 12px;background:var(--pcoleta);border:none;color:#fff;border-radius:3px;cursor:pointer;font-size:11px;font-weight:700">Registrar coleta</button>`:'—'}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="exp-inner">
+    <div style="font-size:16px;font-weight:700;color:var(--ph);margin-bottom:14px">Expedição — Aguardando coleta</div>
+    ${list.length?`<table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr>
+        <th class="th-main" style="padding:7px 9px;border:1px solid #999;text-align:left">Pedido</th>
+        <th class="th-main" style="padding:7px 9px;border:1px solid #999;text-align:left">Cliente</th>
+        <th class="th-main" style="padding:7px 9px;border:1px solid #999">Cidade/UF</th>
+        <th class="th-main" style="padding:7px 9px;border:1px solid #999">URP</th>
+        <th class="th-concl" style="padding:7px 9px;border:1px solid #999">Concl. Produção</th>
+        <th class="th-exp" style="padding:7px 9px;border:1px solid #999">Prazo contratual</th>
+        <th class="th-coleta" style="padding:7px 9px;border:1px solid #999">Dias em exp.</th>
+        <th class="th-main" style="padding:7px 9px;border:1px solid #999">Ação</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`
+    :'<div style="text-align:center;padding:50px;color:#aaa;font-size:14px">Nenhum pedido aguardando coleta</div>'}
+  </div>`;
+}
+
+// ============================================================
+// GESTÃO DE USUÁRIOS
+// ============================================================
+function renderUsuarios(){
+  const rows=allUsers.map(u=>{
+    const ps=u.permissions||{};
+    const permList=ALL_PERMISSIONS.filter(p=>ps[p.key]).map(p=>`<span style="background:#e8f5e8;border:1px solid #aaa;border-radius:3px;padding:1px 5px;font-size:9px;color:var(--ph);margin:1px;display:inline-block">${p.label}</span>`).join('');
+    return `<tr>
+      <td style="border:1px solid var(--pbor);padding:7px 10px">${u.name||'—'}</td>
+      <td style="border:1px solid var(--pbor);padding:7px 10px">${u.email||'—'}</td>
+      <td style="border:1px solid var(--pbor);padding:7px 10px;text-align:center">${roleBadge(u.role)}</td>
+      <td style="border:1px solid var(--pbor);padding:7px 10px">${permList||'<span style="color:#aaa;font-size:11px">Sem permissões</span>'}</td>
+      <td style="border:1px solid var(--pbor);padding:7px 10px;white-space:nowrap">
+        <button onclick="openEditUser('${u.uid}')" style="padding:3px 9px;border:1px solid var(--ph);background:#fff;color:var(--ph);border-radius:3px;cursor:pointer;font-size:11px;font-weight:700">Editar</button>
+        ${u.uid!==CU.uid?`<button onclick="confirmDeleteUser('${u.uid}')" style="padding:3px 9px;border:1px solid #cc2222;background:#fff;color:#cc2222;border-radius:3px;cursor:pointer;font-size:11px;margin-left:4px">✕</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div class="users-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:16px;font-weight:700;color:var(--ph)">Gestão de Usuários</div>
+      <div style="display:flex;gap:8px">
+        <button class="sBtn green" onclick="openModal('novoUser')">+ Novo usuário</button>
+        <button class="sBtn" onclick="loadUsers().then(()=>render())">↻ Atualizar</button>
+      </div>
+    </div>
+    <div class="warn-box">⚠ Para criar novos usuários, é necessário cadastrá-los primeiro no Firebase Console (Authentication) e depois registrar o perfil aqui.</div>
+    <div class="cfg-card" style="padding:10px">
+      <table class="user-table">
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Permissões</th><th>Ações</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa">Nenhum usuário cadastrado</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function openEditUser(uid){
+  editUserId=uid; modalState='editUser'; render();
+}
+async function confirmDeleteUser(uid){
+  if(!confirm('Remover perfil deste usuário do sistema?')) return;
+  try{ await db.collection('users').doc(uid).delete(); showToast('Usuário removido.','ok'); await loadUsers(); render(); }
+  catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+// ============================================================
+// CONFIGURAÇÕES
+// ============================================================
+function renderCfg(){
+  const chips=customSetores.map((s,i)=>`<span class="s-chip">${s}<span class="chip-x" onclick="rmSetor(${i})">✕</span></span>`).join('');
+  const flow=customSetores.map((s,i)=>`${i>0?'<span style="color:#ccc;padding:0 4px;font-size:14px">›</span>':''}<span style="background:#e8f5e8;border:1px solid var(--pconcl);padding:4px 11px;font-size:11px;border-radius:4px;color:var(--ph);font-weight:700">${s}</span>`).join('');
+  return `<div class="cfg-inner">
+    <div style="font-size:16px;font-weight:700;color:var(--ph);margin-bottom:16px">Configurações</div>
+    <div class="cfg-card">
+      <div class="cfg-title">Setores / etapas de produção</div>
+      <div style="margin-bottom:8px">${chips}</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="ns-input" placeholder="Nome do novo setor..." class="sInput" style="flex:1"/>
+        <button class="sBtn green" onclick="addSetor()">Adicionar</button>
+      </div>
+      <div style="margin-top:14px">
+        <div style="font-size:10px;color:#aaa;font-weight:700;text-transform:uppercase;margin-bottom:7px">Fluxo</div>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">${flow}</div>
+      </div>
+      <div style="margin-top:12px">
+        <button class="sBtn green" onclick="saveConfig()">Salvar setores</button>
+      </div>
+    </div>
+  </div>`;
+}
+function addSetor(){ const v=($('ns-input')||{value:''}).value.trim(); if(!v)return; customSetores.push(v); render(); }
+function rmSetor(i){ customSetores.splice(i,1); render(); }
+
+// ============================================================
+// MODAIS
+// ============================================================
+function openModal(m){ modalState=m; render(); }
+function closeModal(){ modalState=null; modalDetId=null; editUserId=null; importData=[]; render(); }
+function openDet(id){ modalDetId=id; modalState='det'; render(); }
+function openColeta(id){ coletaId=id; modalState='coleta'; render(); }
+
+function renderModal(){
+  if(!modalState) return '';
+  if(modalState==='novo')     return renderModalNovo();
+  if(modalState==='det')      return renderModalDet();
+  if(modalState==='coleta')   return renderModalColeta();
+  if(modalState==='importar') return renderModalImportar();
+  if(modalState==='colunas')  return renderModalColunas();
+  if(modalState==='novoUser') return renderModalNovoUser();
+  if(modalState==='editUser') return renderModalEditUser();
+  return '';
+}
+
+// ── NOVO PEDIDO ──
+// ── MODAL SELEÇÃO DE COLUNAS ──────────────────────────────────
+function renderModalColunas(){
+  const grupos = [
+    { label:'Identificação',   keys:['ano','mes','id','nomes','pedido'] },
+    { label:'Localização',     keys:['cidade','uf','setor'] },
+    { label:'Valores',         keys:['urp'] },
+    { label:'Datas',           keys:['dtImp','prazo','prevTEC','conclProd','coleta'] },
+    { label:'Status / Info',   keys:['prioridade','corPed','persiana'] },
+    { label:'Ações',           keys:['acoes'] },
+  ];
+
+  const allVisible = COL_DEFS.every(c=>!colHidden.has(c.key));
+  const allHidden  = COL_DEFS.every(c=>colHidden.has(c.key));
+
+  const checkboxes = grupos.map(g=>`
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1e5a3a;margin-bottom:7px;padding-bottom:4px;border-bottom:1px solid #e8f5e8">${g.label}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">
+        ${g.keys.map(key=>{
+          const c=COL_DEFS.find(x=>x.key===key); if(!c) return '';
+          const checked=!colHidden.has(key);
+          const labelClean=c.label.replace(' ✎','');
+          return `<label style="display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:5px;border:1px solid ${checked?'#2d8a4e':'#ddd'};background:${checked?'#f0faf4':'#fafafa'};cursor:pointer;transition:all .15s;font-size:12px;user-select:none" onclick="toggleColVisibility('${key}')">
+            <span style="width:16px;height:16px;border-radius:3px;border:2px solid ${checked?'#1e5a3a':'#bbb'};background:${checked?'#1e5a3a':'#fff'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s">
+              ${checked?'<span style="color:#fff;font-size:11px;line-height:1;font-weight:700">✓</span>':''}
+            </span>
+            <span style="color:${checked?'#1a3a1a':'#888'};font-weight:${checked?'600':'400'}">${labelClean}</span>
+          </label>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" style="max-width:540px" onclick="event.stopPropagation()">
+    <div class="modal-title">
+      Colunas visíveis
+      <span class="mclose" onclick="closeModal()">✕</span>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:14px">
+      Selecione as colunas que deseja exibir na tabela. Você também pode arrastar os cabeçalhos para reordenar.
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button onclick="setAllColsVisible(true)"  class="sBtn green" style="font-size:11px">✓ Mostrar todas</button>
+      <button onclick="setAllColsVisible(false)" class="sBtn red"   style="font-size:11px">✗ Ocultar todas</button>
+      ${colHidden.size>0?`<span style="margin-left:auto;font-size:11px;color:#e07b1a;font-weight:700;align-self:center">${colHidden.size} coluna(s) oculta(s)</span>`:''}
+    </div>
+    ${checkboxes}
+    <div class="modal-foot">
+      <button class="mBtn green" onclick="closeModal()">Fechar</button>
+    </div>
+  </div></div>`;
+}
+
+function toggleColVisibility(key){
+  if(colHidden.has(key)) colHidden.delete(key);
+  else {
+    // Garante que pelo menos 1 coluna fica visível
+    const visibleCount = COL_DEFS.filter(c=>!colHidden.has(c.key)).length;
+    if(visibleCount<=1){ showToast('Pelo menos uma coluna deve estar visível.','info'); return; }
+    colHidden.add(key);
+  }
+  render();
+}
+
+function setAllColsVisible(show){
+  if(show) colHidden.clear();
+  else {
+    // Mantém só 'acoes' visível ao ocultar tudo
+    COL_DEFS.forEach(c=>{ if(c.key!=='acoes') colHidden.add(c.key); });
+  }
+  render();
+}
+
+// ── MODAL NOVO PEDIDO ────────────────────────────────────────
+function renderModalNovo(){
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Novo pedido de produção <span class="mclose" onclick="closeModal()">✕</span></div>
+    <div class="fg2">
+      <div class="mfl"><label>Ano</label><select id="f-ano"><option>2026</option><option>2025</option><option>2024</option></select></div>
+      <div class="mfl"><label>Mês</label><select id="f-mes">${MONTH_OPTIONS.map(m=>`<option>${m}</option>`).join('')}</select></div>
+    </div>
+    <div class="fg2">
+      <div class="mfl"><label>AT (número do pedido)</label><input type="text" id="f-at" placeholder="ex: AT021700"/></div>
+      <div class="mfl"><label>Nº sequencial</label><input type="text" id="f-nped" placeholder="ex: 5"/></div>
+    </div>
+    <div class="fg2">
+      <div class="mfl"><label>Cor da semana</label><select id="f-corsem">${COR_SEMANA_NOMES.map((n,i)=>`<option value="${i}">${i} — ${n}</option>`).join('')}</select></div>
+      <div class="mfl"><label>Cor do pedido</label><select id="f-corped">${COR_PED_NOMES.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select></div>
+    </div>
+    <div class="fg2">
+      <div class="mfl"><label>URP</label><input type="number" id="f-urp" step="0.01" placeholder="120.50"/></div>
+      <div></div>
+    </div>
+    <div class="fg1"><div class="mfl"><label>Cliente</label><input type="text" id="f-cli"/></div></div>
+    <div class="fg2">
+      <div class="mfl"><label>Cidade</label><input type="text" id="f-cid"/></div>
+      <div class="mfl"><label>Estado (UF)</label><input type="text" id="f-uf" maxlength="2" placeholder="PR"/></div>
+    </div>
+    <div class="fg2">
+      <div class="mfl"><label>Data de impressão</label><input type="date" id="f-dimp"/></div>
+      <div class="mfl"><label>Prazo contratual</label><input type="date" id="f-prazo" oninput="atualizarPrior()"/></div>
+    </div>
+    <div class="fg2">
+      <div class="mfl"><label>Previsão TEC</label><input type="date" id="f-prev"/></div>
+      <div class="mfl"><label>Prioridade <span style="color:#aaa;font-size:9px">(automático)</span></label>
+        <div id="prior-display" class="prior-display prior-normal-bg">✓ NORMAL — 15 ou mais dias</div>
+      </div>
+    </div>
+    <div class="info-box">ℹ <span>Setor inicial: sempre começa em <strong>1. Corte</strong></span></div>
+    <div class="fg2">
+      <div class="mfl"><label>Persiana?</label><select id="f-pers-tipo" onchange="togglePersiana()"><option value="nao">Não</option><option value="sim">Sim</option></select></div>
+      <div class="mfl" id="pers-num-wrap" style="display:none"><label>Número da persiana</label><input type="text" id="f-pers-num" placeholder="ex: 42"/></div>
+    </div>
+    <div class="modal-foot">
+      <button class="mBtn" onclick="closeModal()">Cancelar</button>
+      <button class="mBtn green" onclick="salvarPedido()">Criar pedido</button>
+    </div>
+  </div></div>`;
+}
+function atualizarPrior(){
+  const prazo=($('f-prazo')||{value:''}).value;
+  const p=calcPrior(prazo); const el=$('prior-display');
+  if(el){ el.className=priorModalCls(p); el.textContent=priorTxt(p); }
+}
+function togglePersiana(){
+  const v=($('f-pers-tipo')||{value:'nao'}).value;
+  const w=$('pers-num-wrap'); if(w) w.style.display=v==='sim'?'block':'none';
+}
+
+async function salvarPedido(){
+  const at  = ($('f-at')||{value:''}).value.trim();
+  const cli = ($('f-cli')||{value:''}).value.trim();
+  const urp = parseFloat(($('f-urp')||{value:0}).value)||0;
+  if(!at||!cli){ showToast('Preencha AT e cliente.','err'); return; }
+  const prazo    = ($('f-prazo')||{value:''}).value;
+  const persTipo = ($('f-pers-tipo')||{value:'nao'}).value;
+  const persNum  = ($('f-pers-num')||{value:''}).value.trim();
+  const persiana = persTipo==='sim'?(persNum||'Sim'):'N/A';
+  const mes = ($('f-mes')||{value:'4. ABRIL'}).value;
+  const ano = parseInt(($('f-ano')||{value:'2026'}).value);
+  const seq = pedidos.filter(p=>p.mes===mes&&p.ano===ano).length+1;
+  const data = {
+    seq, ano, mes, at, cliente:cli,
+    cidade: ($('f-cid')||{value:''}).value.trim(),
+    uf:     ($('f-uf')||{value:''}).value.trim().toUpperCase(),
+    urp,
+    dtImp:  ($('f-dimp')||{value:''}).value,
+    setor:  '1. Corte', prazo,
+    corSemana: parseInt(($('f-corsem')||{value:'0'}).value),
+    corPed:    parseInt(($('f-corped')||{value:'0'}).value),
+    numPed: ($('f-nped')||{value:''}).value.trim(),
+    prior:  calcPrior(prazo),
+    prevTEC:($('f-prev')||{value:''}).value,
+    montagem:'', conclProd:'', coleta:'',
+    status:'Em produção', persiana, ressalvas:[],
+    criadoPor: CU.uid, criadoPorNome: CU.name
+  };
+  showLoading('Salvando pedido...');
+  try{ await savePedido(data); modalState=null; hideLoading(); showToast('Pedido criado!','ok'); render(); }
+  catch(e){ hideLoading(); showToast('Erro: '+e.message,'err'); }
+}
+
+// ── DETALHE ──
+function renderModalDet(){
+  const p=pedidos.find(x=>x.id===modalDetId); if(!p) return '';
+  const rhtml=(p.ressalvas||[]).map(r=>`<div class="res-box"><div class="res-meta">${r.user} · ${r.data}</div><div class="res-txt">${r.texto}</div></div>`).join('');
+  const cpBg=COR_PED_BG[p.corPed]||'#f8f8f8', cpFg=COR_PED_FG[p.corPed]||'#333';
+  const setorOpts=['', ...SETORES_FLOW].map(s=>`<option value="${s}" ${p.setor===s?'selected':''}>${s||'—'}</option>`).join('');
+  const statusOpts=['Pendente','Em produção','Aguardando coleta','Finalizado'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('');
+  const mesOpts=MONTH_OPTIONS.map(m=>`<option value="${m}" ${p.mes===m?'selected':''}>${m}</option>`).join('');
+  const anoOpts=[2026,2025,2024].map(a=>`<option value="${a}" ${String(p.ano)===String(a)?'selected':''}>${a}</option>`).join('');
+
+  const field = (label, content)=>`<div class="mfl"><label>${label}</label>${content}</div>`;
+  const editMode = can('editar');
+  const readOnlySummary = `
+    <div class="det-grid">
+      <div class="det-item"><label>Ano / Mês</label>${p.ano} · ${(p.mes||'').replace(/^\d+\. /,'')}</div>
+      <div class="det-item"><label>Nº pedido</label>${p.numPed||'—'}</div>
+      <div class="det-item"><label>Cliente</label>${p.cliente||''}</div>
+      <div class="det-item"><label>URP</label><strong>${(p.urp||0).toFixed(2)}</strong></div>
+      <div class="det-item"><label>Cor da semana</label><span style="display:inline-flex;align-items:center;gap:6px"><span class="cor-badge" style="width:16px;height:16px;background:${COR_SEMANA_HEX[p.corSemana]||'#ccc'};border-color:${COR_SEMANA_BORDER[p.corSemana]||'#999'}"></span>${COR_SEMANA_NOMES[p.corSemana]||'—'}</span></div>
+      <div class="det-item"><label>Cor do pedido</label><span style="background:${cpBg};color:${cpFg};border:1px solid #bbb;padding:2px 9px;border-radius:3px">${COR_PED_NOMES[p.corPed]||'—'}</span></div>
+      <div class="det-item"><label>Localização</label>${setorBadge(p.setor)}</div>
+      <div class="det-item"><label>Prioridade</label>${priorHTML(p.prior)}</div>
+      <div class="det-item"><label>Data impressão</label>${fmt(p.dtImp)||'—'}</div>
+      <div class="det-item"><label>Prazo contratual</label><span style="${prazoStyle(p.prazo)}">${p.prazo?fmt(p.prazo):'—'}</span></div>
+      <div class="det-item"><label>Previsão TEC</label>${fmt(p.prevTEC)||'—'}</div>
+      <div class="det-item"><label>Montagem</label>${fmt(p.montagem)||'—'}</div>
+      <div class="det-item"><label>Concl. Produção</label>${fmt(p.conclProd)||'—'}</div>
+      <div class="det-item"><label>Data coleta</label><span style="color:${p.coleta?'var(--pcoleta)':'#aaa'}">${fmt(p.coleta)||'—'}</span></div>
+      <div class="det-item"><label>Persiana</label>${p.persiana||'N/A'}</div>
+      <div class="det-item"><label>Status</label>${p.status||'—'}</div>
+    </div>`;
+
+  const editSection = editMode ? `
+    <div class="sec-lbl">Editar cadastro</div>
+    <div class="fg2">
+      ${field('Ano', `<select id="e-ano">${anoOpts}</select>`)}
+      ${field('Mês', `<select id="e-mes">${mesOpts}</select>`)}
+    </div>
+    <div class="fg2">
+      ${field('Pedido (AT)', `<input type="text" id="e-at" value="${p.at||''}"/>`)}
+      ${field('Nº sequencial', `<input type="text" id="e-numped" value="${p.numPed||''}"/>`)}
+    </div>
+    <div class="fg2">
+      ${field('Cliente', `<input type="text" id="e-cliente" value="${p.cliente||''}"/>`)}
+      ${field('URP', `<input type="number" step="0.01" id="e-urp" value="${p.urp||0}"/>`)}
+    </div>
+    <div class="fg2">
+      ${field('Cidade', `<input type="text" id="e-cidade" value="${p.cidade||''}"/>`)}
+      ${field('UF', `<input type="text" maxlength="2" id="e-uf" value="${p.uf||''}"/>`)}
+    </div>
+    <div class="fg2">
+      ${field('Data impressão', `<input type="date" id="e-dtimp" value="${toISO(p.dtImp||'')}"/>`)}
+      ${field('Prazo contratual', `<input type="date" id="e-prazo" value="${toISO(p.prazo||'')}" oninput="updateDetailPriorityPreview()"/>`)}
+    </div>
+    <div class="fg2">
+      ${field('Previsão TEC', `<input type="date" id="e-prevtec" value="${toISO(p.prevTEC||'')}"/>`)}
+      ${field('Data concl. produção', `<input type="date" id="e-conclprod" value="${toISO(p.conclProd||'')}"/>`)}
+    </div>
+    <div class="fg2">
+      ${field('Data coleta', `<input type="date" id="e-coleta" value="${toISO(p.coleta||'')}"/>`)}
+      ${field('Montagem', `<input type="date" id="e-montagem" value="${toISO(p.montagem||'')}"/>`)}
+    </div>
+    <div class="fg2">
+      ${field('Cor da semana', `<select id="e-corsem">${COR_SEMANA_NOMES.map((n,i)=>`<option value="${i}" ${Number(p.corSemana)===i?'selected':''}>${i} — ${n}</option>`).join('')}</select>`)}
+      ${field('Cor do pedido', `<select id="e-corped">${COR_PED_NOMES.map((n,i)=>`<option value="${i}" ${Number(p.corPed)===i?'selected':''}>${n}</option>`).join('')}</select>`)}
+    </div>
+    <div class="fg2">
+      ${field('Setor / localização', `<select id="e-setor">${setorOpts}</select>`)}
+      ${field('Status', `<select id="e-status">${statusOpts}</select>`)}
+    </div>
+    <div class="fg2">
+      ${field('Persiana', `<input type="text" id="e-persiana" value="${p.persiana||'N/A'}"/>`)}
+      ${field('Prioridade', `<div id="detail-prior-display" class="${priorModalCls(p.prior)}">${priorTxt(p.prior)}</div>`)}
+    </div>
+  ` : readOnlySummary;
+
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal modal-lg" onclick="event.stopPropagation()">
+    <div class="modal-title"><span style="color:var(--ph)">${p.at}</span> — ${(p.cliente||'').split(' ').slice(0,3).join(' ')}<span class="mclose" onclick="closeModal()">✕</span></div>
+    ${editSection}
+    <div class="sec-lbl">Ressalvas / Impedimentos</div>
+    ${rhtml||'<div style="font-size:11px;color:#aaa;margin-bottom:8px">Nenhuma ressalva</div>'}
+    ${can('ressalva')?`<div class="sec-lbl" style="margin-top:10px">Nova ressalva</div><div class="mfl"><textarea id="nova-res" placeholder="Ex: Falta material X..." rows="3" style="resize:vertical"></textarea></div>`:''}
+    ${can('reverter')?`<div class="sec-lbl">Reverter para setor</div><div class="mfl"><select id="rev-s"><option value="">— Selecionar —</option>${SETORES_FLOW.map(s=>`<option value="${s}">${s}</option>`).join('')}</select></div>`:''}
+    <div class="modal-foot">
+      <button class="mBtn" onclick="closeModal()">Fechar</button>
+      ${can('editar')?`<button class="mBtn green" onclick="saveDetailEdit('${p.id}')">Salvar alterações</button>`:''}
+      ${can('ressalva')?`<button class="mBtn green" onclick="salvarRes('${p.id}')">Salvar ressalva</button>`:''}
+      ${can('reverter')?`<button class="mBtn orange" onclick="reverterSetor('${p.id}')">Reverter setor</button>`:''}
+    </div>
+  </div></div>`;
+}
+
+function updateDetailPriorityPreview(){
+  const prazo = ($('e-prazo')||{value:''}).value;
+  const prior = calcPrior(prazo);
+  const el = $('detail-prior-display');
+  if(el){
+    el.className = priorModalCls(prior);
+    el.textContent = priorTxt(prior);
+  }
+}
+
+async function saveDetailEdit(id){
+  const at = fv('e-at').trim();
+  const cliente = fv('e-cliente').trim();
+  const urp = parseFloat(fv('e-urp')) || 0;
+  if(!at || !cliente){ showToast('AT e cliente são obrigatórios.','err'); return; }
+  const prazo = fv('e-prazo');
+  const update = {
+    ano: parseInt(fv('e-ano')) || new Date().getFullYear(),
+    mes: fv('e-mes'),
+    at,
+    numPed: fv('e-numped').trim(),
+    cliente,
+    urp,
+    cidade: fv('e-cidade').trim(),
+    uf: fv('e-uf').trim().toUpperCase(),
+    dtImp: fv('e-dtimp'),
+    prazo,
+    prior: calcPrior(prazo),
+    prevTEC: fv('e-prevtec'),
+    conclProd: fv('e-conclprod'),
+    coleta: fv('e-coleta'),
+    montagem: fv('e-montagem'),
+    corSemana: parseInt(fv('e-corsem')) || 0,
+    corPed: parseInt(fv('e-corped')) || 0,
+    setor: fv('e-setor'),
+    status: fv('e-status'),
+    persiana: fv('e-persiana').trim() || 'N/A'
+  };
+  showLoading('Salvando alterações...');
+  try{
+    await savePedido(update,id);
+    hideLoading();
+    showToast('Cadastro atualizado!','ok');
+  }catch(e){
+    hideLoading();
+    showToast('Erro: '+e.message,'err');
+  }
+}
+
+async function salvarRes(id){
+  const txt=($('nova-res')||{value:''}).value.trim();
+  if(!txt){ showToast('Digite o texto.','err'); return; }
+  const p=pedidos.find(x=>x.id===id); if(!p) return;
+  const ressalvas=[...(p.ressalvas||[]),{user:CU.name,data:new Date().toLocaleDateString('pt-BR'),texto:txt}];
+  try{ await savePedido({ressalvas},id); modalState=null; showToast('Ressalva salva!','ok'); render(); }
+  catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+async function reverterSetor(id){
+  const s=($('rev-s')||{value:''}).value;
+  if(!s){ showToast('Selecione um setor.','err'); return; }
+  const status=s.includes('Expedi')?'Aguardando coleta':'Em produção';
+  try{ await savePedido({setor:s,status},id); modalState=null; showToast('Setor revertido!','ok'); render(); }
+  catch(e){ showToast('Erro: '+e.message,'err'); }
+}
+
+// ── COLETA ──
+function renderModalColeta(){
+  const p=pedidos.find(x=>x.id===coletaId); if(!p) return '';
+  const today=new Date().toISOString().split('T')[0];
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal modal-sm" onclick="event.stopPropagation()">
+    <div class="modal-title">Registrar data de coleta <span class="mclose" onclick="closeModal()">✕</span></div>
+    <div style="font-size:12px;color:#888;margin-bottom:14px">${p.at} — ${p.cliente||''}</div>
+    <div style="background:#f0f4f0;border:1px solid var(--pbor);border-radius:4px;padding:9px 12px;margin-bottom:14px;font-size:11px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div><b>URP:</b> ${(p.urp||0).toFixed(1)}</div><div><b>Prazo:</b> ${p.prazo?fmt(p.prazo):'—'}</div>
+        <div><b>Cidade:</b> ${p.cidade}/${p.uf}</div><div><b>Concl.:</b> ${fmt(p.conclProd)||'—'}</div>
+      </div>
+    </div>
+    <div class="mfl"><label>Data de coleta</label><input type="date" id="f-col" value="${today}"/></div>
+    <div class="modal-foot">
+      <button class="mBtn" onclick="closeModal()">Cancelar</button>
+      <button class="mBtn teal" onclick="confirmarColeta()">Confirmar coleta</button>
+    </div>
+  </div></div>`;
+}
+
+async function confirmarColeta(){
+  const dt=($('f-col')||{value:''}).value;
+  if(!dt){ showToast('Informe a data.','err'); return; }
+  showLoading('Registrando coleta...');
+  try{
+    await savePedido({coleta:dt,status:'Finalizado',setor:'4. Entregue'},coletaId);
+    modalState=null; hideLoading(); showToast('Coleta registrada!','ok'); render();
+  } catch(e){ hideLoading(); showToast('Erro: '+e.message,'err'); }
+}
+
+// ============================================================
+// EXPORTAR EXCEL
+// ============================================================
+function exportExcel(){
+  try{
+    const headers=['Ano','Mês','ID/Seq','Cor Semana','Pedido (AT)','Cliente','Cidade','UF','URP','Data Impressão','Setor/Localização','Prazo Contratual','Prioridade','Prev. TEC','Data Concl. Produção','Data Coleta','Cor do Pedido','Persiana','Status'];
+    // Helper: ISO → JS Date para que SheetJS grave como data Excel nativa
+    const toDate = iso => {
+      if(!iso) return '';
+      try{ const d=new Date(iso+'T12:00:00'); return isNaN(d)?iso:d; }
+      catch{ return iso; }
+    };
+    const rows=getOrderedPedidos().map(p=>[
+      p.ano||'', (p.mes||'').replace(/^\d+\. /,''), p.numPed||'',
+      COR_SEMANA_NOMES[p.corSemana]||'Branco',
+      p.at||'', p.cliente||'', p.cidade||'', p.uf||'',
+      p.urp||0,
+      toDate(p.dtImp),
+      p.setor||'',
+      toDate(p.prazo),
+      p.prior||'',
+      toDate(p.prevTEC),
+      toDate(p.conclProd),
+      toDate(p.coleta),
+      COR_PED_NOMES[p.corPed]||'Branco',
+      p.persiana||'N/A', p.status||''
+    ]);
+    if(typeof XLSX==='undefined' || !XLSX.utils) throw new Error('Biblioteca XLSX indisponível');
+    const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+    // Formata colunas de data (índices 9,11,13,14,15) como dd/mm/aaaa
+    const dateCols=[9,11,13,14,15];
+    const fmt='dd/mm/yyyy';
+    rows.forEach((_,ri)=>{
+      dateCols.forEach(ci=>{
+        const addr=XLSX.utils.encode_cell({r:ri+1,c:ci});
+        if(ws[addr] && ws[addr].t==='d'){
+          ws[addr].z = fmt;
+        }
+      });
+    });
+    ws['!cols']=[{wch:6},{wch:12},{wch:6},{wch:14},{wch:12},{wch:30},{wch:18},{wch:6},{wch:8},{wch:14},{wch:16},{wch:16},{wch:12},{wch:14},{wch:18},{wch:14},{wch:16},{wch:12},{wch:14}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,'Pedidos',ws);
+    const instrWs=XLSX.utils.aoa_to_sheet([
+      ['INSTRUÇÕES DE IMPORTAÇÃO'],[''],
+      ['Use a aba "Pedidos" como modelo para importação em massa.'],
+      ['Campos obrigatórios: Pedido (AT), Cliente, URP'],
+      ['Cor Semana: Branco, Rosa, Azul, Laranja, Verde, Vermelho ou Amarelo'],
+      ['Cor Pedido: Branco, Preto ou Branco e Preto'],
+      ['Datas: formato dd/mm/aaaa (geradas automaticamente pelo export)'],
+      ['Prioridade: calculada automaticamente pelo prazo (não precisa preencher)'],
+      ['Persiana: "N/A" ou número da persiana'],
+    ]);
+    XLSX.utils.book_append_sheet(wb,'Instruções',instrWs);
+    XLSX.writeFile(wb,`weiku_pcp_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showToast(`${pedidos.length} pedidos exportados!`,'ok');
+  } catch(e){
+    console.warn('Falha no Excel, exportando CSV.', e);
+    const headers=['Ano','Mês','ID/Seq','Cor Semana','Pedido (AT)','Cliente','Cidade','UF','URP','Data Impressão','Setor/Localização','Prazo Contratual','Prioridade','Prev. TEC','Data Concl. Produção','Data Coleta','Cor do Pedido','Persiana','Status'];
+    const rows=getOrderedPedidos().map(p=>[
+      p.ano||'', (p.mes||'').replace(/^\d+\. /,''), p.numPed||'', COR_SEMANA_NOMES[p.corSemana]||'',
+      p.at||'', p.cliente||'', p.cidade||'', p.uf||'', p.urp||0, fmt(p.dtImp)||'', p.setor||'', fmt(p.prazo)||'',
+      p.prior||'', fmt(p.prevTEC)||'', fmt(p.conclProd)||'', fmt(p.coleta)||'', COR_PED_NOMES[p.corPed]||'', p.persiana||'N/A', p.status||''
+    ]);
+    const csv = [headers,...rows].map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(';')).join('\n');
+    const blob = new Blob(["\ufeff"+csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `weiku_pcp_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    showToast('Excel indisponível. CSV exportado com sucesso.','info',4000);
+  }
+}
+// ============================================================
+// IMPORTAR EXCEL
+// ============================================================
+function renderModalImportar(){
+  const hasData=importData.length>0;
+  const previewRows=importData.slice(0,8).map(r=>`<tr>${['at','cliente','uf','urp','prazo','setor','status','_erro'].map(f=>`<td style="${f==='_erro'&&r[f]?'color:#cc2222;font-weight:700':''}">${r[f]||''}</td>`).join('')}</tr>`).join('');
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal modal-lg" onclick="event.stopPropagation()">
+    <div class="modal-title">Importar pedidos via Excel <span class="mclose" onclick="closeModal()">✕</span></div>
+    <div class="info-box">ℹ Use o arquivo exportado deste sistema como modelo. Linhas com AT já existente serão <strong>atualizadas</strong>. Linhas novas serão inseridas.</div>
+    <div class="fg1">
+      <div class="mfl"><label>Selecione o arquivo .xlsx</label>
+        <input type="file" id="f-import-file" accept=".xlsx,.xls" onchange="previewImport(this)"/>
+      </div>
+    </div>
+    ${hasData?`
+      <div style="font-size:11px;font-weight:700;color:var(--ph);margin-bottom:6px">${importData.length} linhas detectadas — prévia (primeiras 8):</div>
+      <div class="import-preview">
+        <table><thead><tr><th>AT</th><th>Cliente</th><th>UF</th><th>URP</th><th>Prazo</th><th>Setor</th><th>Status</th><th>Obs.</th></tr></thead>
+        <tbody>${previewRows}</tbody></table>
+      </div>
+      <div style="font-size:11px;color:#888;margin-top:4px">${importData.filter(r=>r._erro).length} linha(s) com erro serão ignoradas.</div>
+    `:''}
+    <div class="modal-foot">
+      <button class="mBtn" onclick="closeModal()">Cancelar</button>
+      ${hasData?`<button class="mBtn green" onclick="executeImport()">Importar ${importData.filter(r=>!r._erro).length} pedidos</button>`:''}
+    </div>
+  </div></div>`;
+}
+
+function previewImport(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary', cellDates:true, dateNF:'yyyy-mm-dd'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1});
+      if(data.length<2){ showToast('Arquivo vazio ou inválido.','err'); return; }
+      const headers=data[0].map(h=>(h||'').toString().toLowerCase().trim());
+      const findCol=(terms)=>{ for(const t of terms){const i=headers.findIndex(h=>h.includes(t));if(i>=0)return i;} return -1; };
+      const cols={
+        ano:     findCol(['ano']),
+        mes:     findCol(['mês','mes']),
+        numPed:  findCol(['id','seq','sequencial','nº']),
+        corSem:  findCol(['cor semana','cor_semana','corsemana','cor da semana']),
+        at:      findCol(['pedido','at']),
+        cliente: findCol(['cliente','nome']),
+        cidade:  findCol(['cidade']),
+        uf:      findCol(['uf','estado']),
+        urp:     findCol(['urp']),
+        dtImp:   findCol(['impressão','impressao','data de impressão']),
+        setor:   findCol(['localização','localizacao','setor']),
+        prazo:   findCol(['prazo']),
+        prevTEC: findCol(['prev. tec','prev tec','previsão tec','previsao tec']),
+        conclProd: findCol(['concl','conclusão','conclusao','data concl']),
+        coleta:  findCol(['coleta','data coleta']),
+        corPed:  findCol(['cor do pedido','cor pedido','corpedido']),
+        persiana:findCol(['persiana']),
+        status:  findCol(['status']),
+      };
+      importData=data.slice(1).filter(r=>r.some(c=>c!=null&&c!=='')).map(r=>{
+        // raw getter — preserves original type (numbers for dates/serial)
+        const raw=i=>i>=0?r[i]:null;
+        const g=i=>{ const v=raw(i); return v==null?'':String(v).trim(); };
+
+        const at=g(cols.at);
+        const cliente=g(cols.cliente);
+        const urpRaw=parseFloat(g(cols.urp))||0;
+        const erro=!at?'AT ausente':!cliente?'Cliente ausente':!urpRaw?'URP inválida':'';
+
+        // Cor Semana: aceita índice (0-6) OU nome ("Branco", "Rosa"...)
+        const corSemRaw = g(cols.corSem);
+        const corSemNum = parseInt(corSemRaw);
+        const corSemana = !isNaN(corSemNum) && corSemNum >= 0 && corSemNum <= 6
+          ? corSemNum
+          : Math.max(0, COR_SEMANA_NOMES.findIndex(n => n.toLowerCase()===corSemRaw.toLowerCase()));
+
+        // Cor Pedido: aceita índice (0-2) OU nome ("Branco", "Preto", "Branco e Preto")
+        const corPedRaw = g(cols.corPed);
+        const corPedNum = parseInt(corPedRaw);
+        const corPed = !isNaN(corPedNum) && corPedNum >= 0 && corPedNum <= 2
+          ? corPedNum
+          : Math.max(0, COR_PED_NOMES.findIndex(n => n.toLowerCase()===corPedRaw.toLowerCase()));
+
+        // Mês: garante formato "N. NOME"
+        let mesRaw = g(cols.mes).toUpperCase();
+        if(mesRaw && !/^\d/.test(mesRaw)){
+          const MESES=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+          const mi = MESES.findIndex(m=>mesRaw.includes(m));
+          if(mi>=0) mesRaw = `${mi+1}. ${MESES[mi]}`;
+        }
+
+        return{
+          at, cliente, urp:urpRaw,
+          ano:  parseInt(g(cols.ano))||new Date().getFullYear(),
+          mes:  mesRaw||'4. ABRIL',
+          numPed: g(cols.numPed),
+          corSemana,
+          cidade: g(cols.cidade), uf: g(cols.uf).toUpperCase(),
+          dtImp:    toISO(raw(cols.dtImp)),
+          prazo:    toISO(raw(cols.prazo)),
+          prevTEC:  toISO(raw(cols.prevTEC)),
+          conclProd:toISO(raw(cols.conclProd)),
+          coleta:   toISO(raw(cols.coleta)),
+          corPed,
+          setor: g(cols.setor)||'1. Corte',
+          persiana: g(cols.persiana)||'N/A',
+          status: g(cols.status)||'Em produção',
+          _erro: erro
+        };
+      });
+      render();
+    } catch(ex){ showToast('Erro ao ler arquivo: '+ex.message,'err'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+async function executeImport(){
+  const valid=importData.filter(r=>!r._erro);
+  if(!valid.length){ showToast('Nenhuma linha válida para importar.','err'); return; }
+  showLoading(`Importando ${valid.length} pedidos...`);
+  let ok=0, upd=0, err=0;
+  for(const row of valid){
+    try{
+      // Verifica se AT já existe
+      const existing=pedidos.find(p=>p.at===row.at);
+      const data={ ...row, prior:calcPrior(row.prazo), ordem: existing ? (existing.ordem || ((getOrderedPedidos().length+1)*10)) : ((getOrderedPedidos().length+1)*10), ressalvas:existing?undefined:[], atualizadoEm:firebase.firestore.FieldValue.serverTimestamp() };
+      delete data._erro;
+      if(existing){
+        delete data.ressalvas;
+        await db.collection('pedidos').doc(existing.id).update(data); upd++;
+      } else {
+        data.ressalvas=[];
+        data.criadoPor=CU.uid; data.criadoPorNome=CU.name;
+        data.criadoEm=firebase.firestore.FieldValue.serverTimestamp();
+        await db.collection('pedidos').add(data); ok++;
+      }
+    } catch(e){ err++; console.error('Import error',e); }
+  }
+  hideLoading(); modalState=null; importData=[];
+  showToast(`Importação concluída: ${ok} novos, ${upd} atualizados${err?`, ${err} erros`:''}!`, err?'info':'ok', 5000);
+  render();
+}
+
+// ============================================================
+// MODAL NOVO USUÁRIO
+// ============================================================
+function renderModalNovoUser(){
+  const permCheckboxes=ALL_PERMISSIONS.map(p=>`
+    <div class="perm-item">
+      <input type="checkbox" id="perm-${p.key}" name="${p.key}"/>
+      <label for="perm-${p.key}">${p.label}</label>
+    </div>`).join('');
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Novo usuário <span class="mclose" onclick="closeModal()">✕</span></div>
+    <div class="warn-box">⚠ O usuário deve ser criado primeiro no <a href="https://console.firebase.google.com" target="_blank" style="color:var(--pexp)">Firebase Console > Authentication</a>. Aqui você define o perfil e permissões.</div>
+    <div class="fg2">
+      <div class="mfl"><label>Nome</label><input type="text" id="fu-name" placeholder="Nome completo"/></div>
+      <div class="mfl"><label>E-mail</label><input type="email" id="fu-email" placeholder="usuario@email.com"/></div>
+    </div>
+    <div class="fg2">
+      <div class="mfl"><label>Perfil base</label>
+        <select id="fu-role" onchange="applyRoleDefaults()">
+          <option value="viewer">Visualizador</option>
+          <option value="almox">Almoxarifado</option>
+          <option value="producao">Produção</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div></div>
+    </div>
+    <div class="sec-lbl">Permissões customizadas</div>
+    <div class="perm-grid">${permCheckboxes}</div>
+    <div class="modal-foot">
+      <button class="mBtn" onclick="closeModal()">Cancelar</button>
+      <button class="mBtn green" onclick="salvarNovoUser()">Salvar perfil</button>
+    </div>
+  </div></div>`;
+}
+
+function applyRoleDefaults(){
+  const role=($('fu-role')||{value:'viewer'}).value;
+  const defs=ROLE_DEFAULTS[role]||{};
+  ALL_PERMISSIONS.forEach(p=>{ const el=$(`perm-${p.key}`); if(el) el.checked=!!(defs[p.key]); });
+}
+
+async function salvarNovoUser(){
+  const name  = ($('fu-name')||{value:''}).value.trim();
+  const email = ($('fu-email')||{value:''}).value.trim();
+  const role  = ($('fu-role')||{value:'viewer'}).value;
+  if(!name||!email){ showToast('Preencha nome e e-mail.','err'); return; }
+  const permissions={};
+  ALL_PERMISSIONS.forEach(p=>{ const el=$(`perm-${p.key}`); if(el) permissions[p.key]=el.checked?1:0; });
+  // Tenta encontrar uid pelo email (requer que o usuário já exista no Auth)
+  showLoading('Salvando...');
+  try{
+    // Salva com email como ID temporário até sincronizar com Auth UID
+    const uid='email_'+email.replace(/[@.]/g,'_');
+    await db.collection('users').doc(uid).set({ name, email, role, permissions, createdAt:firebase.firestore.FieldValue.serverTimestamp() });
+    hideLoading(); modalState=null;
+    showToast('Perfil salvo! Ao fazer login, o UID do Firebase Auth será sincronizado.','info',5000);
+    await loadUsers(); render();
+  } catch(e){ hideLoading(); showToast('Erro: '+e.message,'err'); }
+}
+
+// ── EDITAR USUÁRIO ──
+function renderModalEditUser(){
+  const u=allUsers.find(x=>x.uid===editUserId); if(!u) return '';
+  const permCheckboxes=ALL_PERMISSIONS.map(p=>`
+    <div class="perm-item">
+      <input type="checkbox" id="eperm-${p.key}" ${(u.permissions||{})[p.key]?'checked':''} />
+      <label for="eperm-${p.key}">${p.label}</label>
+    </div>`).join('');
+  return `<div class="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Editar usuário — ${u.name||u.email} <span class="mclose" onclick="closeModal()">✕</span></div>
+    <div class="fg2">
+      <div class="mfl"><label>Nome</label><input type="text" id="eu-name" value="${u.name||''}"/></div>
+      <div class="mfl"><label>E-mail</label><input type="text" id="eu-email" value="${u.email||''}" readonly class="readonly-field" style="background:#eee;color:#888"/></div>
+    </div>
+    <div class="fg2">
+      <div class="mfl"><label>Perfil base</label>
+        <select id="eu-role" onchange="applyRoleDefaultsEdit()">
+          ${['viewer','almox','producao','admin'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${{viewer:'Visualizador',almox:'Almoxarifado',producao:'Produção',admin:'Administrador'}[r]}</option>`).join('')}
+        </select>
+      </div>
+      <div></div>
+    </div>
+    <div class="sec-lbl">Permissões customizadas</div>
+    <div class="perm-grid">${permCheckboxes}</div>
+    <div class="modal-foot">
+      <button class="mBtn" onclick="closeModal()">Cancelar</button>
+      <button class="mBtn green" onclick="salvarEditUser('${u.uid}')">Salvar alterações</button>
+    </div>
+  </div></div>`;
+}
+function applyRoleDefaultsEdit(){
+  const role=($('eu-role')||{value:'viewer'}).value;
+  const defs=ROLE_DEFAULTS[role]||{};
+  ALL_PERMISSIONS.forEach(p=>{ const el=$(`eperm-${p.key}`); if(el) el.checked=!!(defs[p.key]); });
+}
+async function salvarEditUser(uid){
+  const name=($('eu-name')||{value:''}).value.trim();
+  const role=($('eu-role')||{value:'viewer'}).value;
+  const permissions={};
+  ALL_PERMISSIONS.forEach(p=>{ const el=$(`eperm-${p.key}`); if(el) permissions[p.key]=el.checked?1:0; });
+  showLoading('Salvando...');
+  try{
+    await saveUser(uid,{name,role,permissions});
+    hideLoading(); modalState=null; editUserId=null;
+    showToast('Usuário atualizado!','ok');
+    await loadUsers(); render();
+  } catch(e){ hideLoading(); showToast('Erro: '+e.message,'err'); }
+}
+
+// ============================================================
+// READONLY FIELD para modal (mfl)
+// ============================================================
+const _style_readonly = `.readonly-field{background:#eee!important;color:#888!important;cursor:not-allowed}`;
+const _styleEl = document.createElement('style');
+_styleEl.textContent = _style_readonly;
+document.head.appendChild(_styleEl);
+</script>
+</body>
+</html>
