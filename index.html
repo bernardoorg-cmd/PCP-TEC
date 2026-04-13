@@ -444,6 +444,7 @@ let nextLocalId  = 1;
 let pedSearch    = '', pedFano = '', pedFpersiana = '';
 let pedFsetores  = [];
 let pedFMeses    = [];
+let pedViewMode  = 'padrao';
 const MONTH_OPTIONS = ['1. JANEIRO','2. FEVEREIRO','3. MARÇO','4. ABRIL','5. MAIO','6. JUNHO','7. JULHO','8. AGOSTO','9. SETEMBRO','10. OUTUBRO','11. NOVEMBRO','12. DEZEMBRO'];
 
 const NC_FELD_OPTIONS = ['Folha','Caixilho','Travessa','Barra'];
@@ -582,7 +583,7 @@ function getOrderedPedidos(){
   });
 }
 function hasPedidoFilters(){
-  return !!(pedSearch || pedFano || pedFpersiana || pedFsetores.length || pedFMeses.length);
+  return hasManualPedidoFilters();
 }
 function monthFilterLabel(){
   if(!pedFMeses.length) return 'Todos os meses';
@@ -639,21 +640,42 @@ function getPedidoPeriodoKey(p){
 }
 function getPeriodoAtualKey(){
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const businessMonth = now.getDate() >= 26 ? (m === 12 ? 1 : m + 1) : m;
+  const businessYear = now.getDate() >= 26 && m === 12 ? y + 1 : y;
+  return `${businessYear}-${String(businessMonth).padStart(2,'0')}`;
 }
-function isPedidoAbertoSetorAnterior(p){
+function isPedidoSetorProdutivoOuExpedicao(p){
+  const setor = String((p && p.setor) || '');
+  return setor==='0. Pendente corte' || setor==='1. Corte' || setor==='2. Montagem' || setor.includes('3. Expedi');
+}
+function isPedidoSetorProdutivoAtual(p){
   const setor = String((p && p.setor) || '');
   return setor==='0. Pendente corte' || setor==='1. Corte' || setor==='2. Montagem';
 }
-function matchesDefaultPedidosView(p){
-  const pedidoKey = getPedidoPeriodoKey(p);
-  const atualKey = getPeriodoAtualKey();
-  if(!pedidoKey) return false;
-  if(pedidoKey===atualKey) return true;
-  return pedidoKey < atualKey && isPedidoAbertoSetorAnterior(p);
+function matchesPedidosViewMode(p){
+  if(pedViewMode==='mesAtual'){
+    const pedidoKey = getPedidoPeriodoKey(p);
+    const atualKey = getPeriodoAtualKey();
+    return pedidoKey===atualKey && isPedidoSetorProdutivoAtual(p);
+  }
+  return isPedidoSetorProdutivoOuExpedicao(p);
+}
+function setPedidosViewMode(mode){
+  pedViewMode = mode==='mesAtual' ? 'mesAtual' : 'padrao';
+  render();
+}
+function getPedidosViewModeLabel(){
+  return pedViewMode==='mesAtual'
+    ? 'Somente período atual · pendente corte, corte e montagem'
+    : 'Todos os pedidos em pendente corte, corte, montagem e expedição';
+}
+function hasManualPedidoFilters(){
+  return !!(pedSearch || pedFano || pedFpersiana || pedFsetores.length || pedFMeses.length);
 }
 function shouldUseDefaultPedidosView(){
-  return !pedSearch && !pedFano && !pedFpersiana && !pedFsetores.length && !pedFMeses.length;
+  return pedViewMode==='padrao' && !hasManualPedidoFilters();
 }
 function startOfISOWeek(date){
   const d = new Date(date);
@@ -2282,7 +2304,7 @@ function renderPedidos(){
     const ma=!pedFano||String(p.ano)===pedFano;
     const mm=!pedFMeses.length||pedFMeses.includes(String(p.mes||''));
     const mp=!pedFpersiana||(pedFpersiana==='sim'?isPersianaValida(p.persiana):!isPersianaValida(p.persiana));
-    const md=!useDefaultView || matchesDefaultPedidosView(p);
+    const md=matchesPedidosViewMode(p);
     return mq&&ml&&ma&&mm&&mp&&md;
   });
   const totalURP=urpTotal(list).toFixed(2);
@@ -2347,10 +2369,15 @@ function renderPedidos(){
 
   return `<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
     <div class="sheet-toolbar">
-      <span class="sheet-title">Pedidos de produção</span>+ (shouldUseDefaultPedidosView() ? '<span style="font-size:10px;color:#666;background:#eef3ee;border:1px solid #d8e4d8;border-radius:999px;padding:3px 8px">Período atual + abertos de períodos anteriores</span>' : '')
+      <span class="sheet-title">Pedidos de produção</span>
+      <span style="font-size:10px;color:#666;background:#eef3ee;border:1px solid #d8e4d8;border-radius:999px;padding:3px 8px">${getPedidosViewModeLabel()}</span>
       <div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #bbb;border-radius:4px;padding:4px 9px">
         <span style="color:#aaa">⌕</span>
         <input type="text" placeholder="Buscar AT, cliente, cidade..." value="${pedSearch}" oninput="pedF('srch',this.value)" class="sInput" style="border:none;padding:0;min-width:170px;background:none"/>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="sBtn ${pedViewMode==='padrao'?'green':''}" onclick="setPedidosViewMode('padrao')">Visão padrão</button>
+        <button class="sBtn ${pedViewMode==='mesAtual'?'green':''}" onclick="setPedidosViewMode('mesAtual')">Somente período atual</button>
       </div>
       <details class="sStatusMulti" style="position:relative">
         <summary class="sBtn" style="list-style:none">${localizacaoFilterLabel()} ▾</summary>
